@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Mic, MicOff, Volume2, Trash2, ArrowRight } from 'lucide-react'
+import { Mic, MicOff, Volume2, Trash2, ArrowRight, AudioLines } from 'lucide-react'
 import { sendChat } from '../utils/api.js'
 
 const WAKE_WORD = 'dominic'
@@ -34,10 +34,14 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
   const [transcripts, setTranscripts] = useState([])
   const [support, setSupport] = useState({ recognition: false, synthesis: false })
   const [jarvisOnline, setJarvisOnline] = useState(false)
+  const [recording, setRecording] = useState(false)
   const recognitionRef = useRef(null)
   const synthRef = useRef(null)
   const voiceRef = useRef(null)
   const audioRef = useRef(null)
+  const mediaRecorderRef = useRef(null)
+  const recordingChunksRef = useRef([])
+  const recordingRef = useRef(false)
   const listeningRef = useRef(false)
   const speakingRef = useRef(false)
   const replyingRef = useRef(false)
@@ -320,6 +324,76 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
 
   useEffect(() => () => stopAll(), [stopAll])
 
+  const startRecording = async () => {
+    if (recordingRef.current) return
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+      const recorder = new MediaRecorder(stream, { mimeType: mime })
+      recordingChunksRef.current = []
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordingChunksRef.current.push(e.data)
+      }
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop())
+        const blob = new Blob(recordingChunksRef.current, { type: mime })
+        const ext = mime.includes('mp4') ? 'm4a' : 'webm'
+        await transcribeBlob(blob, ext)
+        recordingRef.current = false
+        setRecording(false)
+      }
+      recorder.start()
+      mediaRecorderRef.current = recorder
+      recordingRef.current = true
+      setRecording(true)
+    } catch {
+      showToast?.('Preciso do microfone — libere a permissão no navegador', 'error')
+    }
+  }
+
+  const stopRecording = () => {
+    try { mediaRecorderRef.current?.stop() } catch { /* ignore */ }
+  }
+
+  const transcribeBlob = async (blob, ext) => {
+    setLastError(null)
+    try {
+      const r = await fetch('/api/jarvis/transcribe', { method: 'POST', body: blob })
+      const data = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(data.error || 'falha ao transcrever')
+      const raw = (data.text || '').trim()
+      if (!raw) {
+        showToast?.('Não entendi o que você falou. Tente de novo.', 'error')
+        return
+      }
+      console.log('[voz] transcrito:', raw)
+      setTranscripts((prev) => [...prev.slice(-49), { id: Date.now() + Math.random(), text: raw, heard: Date.now() }])
+      const phrase = normalizeVoicePhrase(raw)
+      if (STOP_PHRASES.some((p) => phrase.includes(p))) {
+        awakeRef.current = false
+        setAwake(false)
+        speak('Até mais! É só me chamar de novo.')
+        setTimeout(() => stopAll(), 900)
+        return
+      }
+      if (!awakeRef.current) {
+        if (phrase.includes(WAKE_WORD)) {
+          awakeRef.current = true
+          setAwake(true)
+          speak('Olá, meu nome é Dominic, o que tá pegando?')
+          return
+        }
+        showToast?.('Diga "Dominic" primeiro para ativar.', 'error')
+        return
+      }
+      askDominic(raw)
+    } catch (err) {
+      console.error('[voz] erro na transcrição:', err)
+      setLastError(`Transcrição: ${err.message}`)
+      showToast?.('Falha ao transcrever o áudio', 'error')
+    }
+  }
+
   const toggleListening = async () => {
     if (!support.recognition) {
       showToast?.('Seu navegador não suporta reconhecimento de voz — use Chrome ou Edge', 'error')
@@ -397,16 +471,31 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
           >
             {listening ? <MicOff size={22} /> : <Mic size={22} />}
           </button>
+          <button
+            className={`voice-btn big hold ${recording ? 'rec' : ''}`}
+            onPointerDown={(e) => { e.preventDefault(); startRecording() }}
+            onPointerUp={stopRecording}
+            onPointerLeave={stopRecording}
+            onPointerCancel={stopRecording}
+            title="Segure para falar (transcrição por servidor)"
+          >
+            <AudioLines size={22} />
+          </button>
           <button className="voice-btn small" onClick={testVoice} title="Testar voz do Dominic">
             <Volume2 size={18} />
           </button>
         </div>
 
         <div className="voice-hint">
+          {recording
+            ? 'Gravando... solte para enviar'
+            : jarvisOnline
+              ? 'Segure o botão verde para falar, ou use o microfone e diga "Dominic".'
+              : 'Ative o microfone e diga "Dominic", ou segure o botão verde para falar.'}
           {jarvisOnline && (
             <span className="jarvis-chip">✓ Voz neural ativa</span>
           )}
-          Ative o microfone e diga <strong>“Dominic”</strong>. Ele acorda, responde e você pode conversar com ele por voz. Para encerrar, diga <strong>“tchau Dominic”</strong>.
+          Para encerrar, diga <strong>“tchau Dominic”</strong>.
         </div>
 
         {dialogue.length > 0 && (

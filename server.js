@@ -104,6 +104,21 @@ async function readBody(req) {
   })
 }
 
+async function readRawBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = []
+    req.on('data', (chunk) => {
+      chunks.push(chunk)
+      if (Buffer.concat(chunks).length > 20_000_000) {
+        reject(new Error('Body too large'))
+        req.destroy()
+      }
+    })
+    req.on('end', () => resolve(Buffer.concat(chunks)))
+    req.on('error', reject)
+  })
+}
+
 function timeoutFetch(url, options = {}, timeoutMs = 60_000) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
@@ -747,21 +762,24 @@ const JARVIS_SERVICE_URL = process.env.JARVIS_SERVICE_URL || 'http://127.0.0.1:8
 
 async function jarvisProxy(req, res, path) {
   try {
-    const body = await readBody(req)
-    const hasBody = Object.keys(body).length > 0
+    const contentType = req.headers['content-type'] || ''
+    const raw = await readRawBody(req)
+    const isJson = contentType.includes('application/json')
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 6000)
     const upstream = await fetch(`${JARVIS_SERVICE_URL}${path}`, {
       method: req.method,
-      headers: { 'Content-Type': 'application/json' },
-      body: hasBody ? JSON.stringify(body) : undefined,
+      headers: isJson ? { 'Content-Type': 'application/json' } : { 'Content-Type': contentType },
+      body: isJson
+        ? (raw.length ? JSON.stringify(JSON.parse(raw.toString())) : undefined)
+        : (raw.length ? raw : undefined),
       signal: controller.signal
     })
     clearTimeout(timer)
     const data = await upstream.arrayBuffer()
-    const contentType = upstream.headers.get('content-type') || 'application/json'
+    const upstreamType = upstream.headers.get('content-type') || 'application/json'
     res.writeHead(upstream.status, {
-      'Content-Type': contentType,
+      'Content-Type': upstreamType,
       'Content-Length': data.byteLength
     })
     res.end(Buffer.from(data))

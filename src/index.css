@@ -2057,3 +2057,20 @@ textarea.input { resize: vertical; }
   background: rgba(52, 211, 153, 0.1);
   border: 1px solid rgba(52, 211, 153, 0.35);
 }
+
+.voice-btn.big.hold {
+  border-color: rgba(52, 211, 153, 0.45);
+  background: rgba(52, 211, 153, 0.12);
+  color: var(--neon-green);
+}
+
+.voice-btn.big.hold:hover {
+  box-shadow: 0 0 16px rgba(52, 211, 153, 0.5);
+}
+
+.voice-btn.big.hold.rec {
+  border-color: var(--neon-red);
+  background: rgba(251, 113, 133, 0.18);
+  color: #fff;
+  animation: micPulse 0.9s ease-in-out infinite;
+}

@@ -4,6 +4,7 @@ import os
 import subprocess
 import tempfile
 
+import httpx
 import speech_recognition as sr
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
@@ -86,6 +87,34 @@ async def stt(request: Request) -> Response:
     except sr.RequestError as exc:
         return Response(status_code=502, content=json.dumps({"error": f"Google STT indisponível: {exc}"}), media_type="application/json")
     return Response(content=json.dumps({"text": text}), media_type="application/json")
+
+
+@app.post("/api/transcribe")
+async def transcribe(request: Request) -> Response:
+    data = await request.body()
+    if not data:
+        return Response(status_code=400, content='{"error":"áudio vazio"}', media_type="application/json")
+
+    api_key = os.getenv("GROQ_API_KEY", "")
+    if not api_key:
+        return Response(status_code=500, content='{"error":"GROQ_API_KEY não configurada"}', media_type="application/json")
+
+    mime = request.headers.get("content-type", "audio/webm")
+    ext = "m4a" if "mp4" in mime else "ogg" if "ogg" in mime else "wav" if "wav" in mime else "webm"
+    try:
+        response = httpx.post(
+            "https://api.groq.com/openai/v1/audio/transcriptions",
+            headers={"Authorization": f"Bearer {api_key}"},
+            data={"model": "whisper-large-v3-turbo", "language": "pt"},
+            files={"file": (f"audio.{ext}", data, mime)},
+            timeout=60.0,
+        )
+        result = response.json()
+        if response.status_code != 200:
+            return Response(status_code=502, content=json.dumps({"error": result.get("error", {}).get("message", "Falha no Whisper")}), media_type="application/json")
+        return Response(content=json.dumps({"text": result.get("text", "")}), media_type="application/json")
+    except Exception as exc:
+        return Response(status_code=502, content=json.dumps({"error": str(exc)}), media_type="application/json")
 
 
 @app.post("/api/brain")
