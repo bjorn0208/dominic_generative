@@ -6,6 +6,8 @@ const WAKE_WORD = 'dominic'
 const STOP_PHRASES = ['tchau dominic', 'desativar', 'pode dormir', 'vai dormir', 'até mais']
 const COOLDOWN_MS = 1000
 const RESTART_DELAY_MS = 800
+const WATCHDOG_MS = 2500
+const MAX_UTTERANCE_MS = 25000
 
 function normalizeVoicePhrase(text) {
   return text.toLowerCase().replace(/[^a-zA-Z0-9áéíóúâêôãõç]+/g, ' ').trim()
@@ -28,6 +30,7 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
   const [speaking, setSpeaking] = useState(false)
   const [replying, setReplying] = useState(false)
   const [awake, setAwake] = useState(false)
+  const [lastError, setLastError] = useState(null)
   const [transcripts, setTranscripts] = useState([])
   const [support, setSupport] = useState({ recognition: false, synthesis: false })
   const recognitionRef = useRef(null)
@@ -40,7 +43,13 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
   const lastWakeAtRef = useRef(0)
   const activeSessionRef = useRef(false)
   const convIdRef = useRef(null)
+  const modelsRef = useRef([])
+  const messagesRef = useRef([])
+  const titleRef = useRef('Nova conversa')
 
+  useEffect(() => { modelsRef.current = models || [] }, [models])
+  useEffect(() => { messagesRef.current = conversation?.messages || [] }, [conversation?.messages])
+  useEffect(() => { titleRef.current = conversation?.title || 'Nova conversa' }, [conversation?.title])
   useEffect(() => {
     if (!conversation && models.length) {
       onNewConversation()
@@ -66,17 +75,13 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
     return () => window.speechSynthesis?.removeEventListener?.('voiceschanged', loadVoices)
   }, [])
 
-  useEffect(() => () => stopAll(), [])
-
-  const messages = conversation?.messages || []
-
   const speak = useCallback((text, done) => {
     const synth = synthRef.current
     if (!synth) {
       done?.()
       return
     }
-    synth.cancel()
+    try { synth.cancel() } catch { /* ignore */ }
     const utterance = new SpeechSynthesisUtterance(text)
     utterance.lang = 'pt-BR'
     if (voiceRef.current) utterance.voice = voiceRef.current
@@ -93,13 +98,22 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
     }
     utterance.onend = finish
     utterance.onerror = finish
+    setTimeout(() => {
+      if (speakingRef.current) {
+        speakingRef.current = false
+        setSpeaking(false)
+        done?.()
+      }
+    }, MAX_UTTERANCE_MS)
     synth.speak(utterance)
   }, [])
 
   const restartListening = useCallback((rec) => {
     setTimeout(() => {
-      if (activeSessionRef.current && !listeningRef.current && !speakingRef.current) {
-        try { rec.start() } catch { /* ignore */ }
+      if (activeSessionRef.current && !listeningRef.current && !speakingRef.current && !replyingRef.current) {
+        try {
+          rec.start()
+        } catch { /* ignore */ }
       }
     }, RESTART_DELAY_MS)
   }, [])
@@ -109,6 +123,7 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
     awakeRef.current = false
     listeningRef.current = false
     replyingRef.current = false
+    speakingRef.current = false
     try { recognitionRef.current?.stop() } catch { /* ignore */ }
     try { synthRef.current?.cancel() } catch { /* ignore */ }
     setListening(false)
@@ -119,28 +134,42 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
 
   const askDominic = useCallback(async (query) => {
     const convId = convIdRef.current
-    if (!convId || replyingRef.current || speakingRef.current) return
+    if (!convId) {
+      console.warn('[voz] sem conversa ativa')
+      setLastError('Nenhuma conversa ativa. Recarregue a página.')
+      showToast?.('Nenhuma conversa ativa', 'error')
+      return
+    }
+    if (replyingRef.current || speakingRef.current) {
+      console.warn('[voz] ocupado — ignorando fala')
+      return
+    }
     replyingRef.current = true
     setReplying(true)
+    setLastError(null)
     try { recognitionRef.current?.stop() } catch { /* ignore */ }
 
     const systemPrompt = `Você é Dominic, uma IA generativa proprietária criada pelo usuário. Responda de forma útil, direta e amigável, em português brasileiro, como uma conversa falada: frases curtas e naturais, sem listas longas. Nunca mencione que você usa modelos de terceiros, provedores de API, empresas como OpenAI, Anthropic, Google ou Meta, nem nomes de modelos.`
 
-    const next = [...messages, { role: 'user', content: query }]
+    const current = messagesRef.current
+    const next = [...current, { role: 'user', content: query }]
     onUpdateConversation(convId, {
       messages: next,
-      title: conversation?.title === 'Nova conversa' ? query.slice(0, 60) : conversation?.title
+      title: titleRef.current === 'Nova conversa' ? query.slice(0, 60) : titleRef.current
     })
 
-    const provider = models.find((m) => m.enabled)
+    const fallbackModel = { providerId: 'groq', model: null }
+    const provider = modelsRef.current[0] || fallbackModel
     const payload = [
       { role: 'system', content: systemPrompt },
       ...next.slice(-16).map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content }))
     ]
 
     try {
-      const data = await sendChat({ providerId: provider?.providerId, model: provider?.model, messages: payload })
+      console.log('[voz] enviando para', provider.providerId, provider.model)
+      const data = await sendChat({ providerId: provider.providerId, model: provider.model, messages: payload })
       const reply = data.reply
+      console.log('[voz] resposta recebida:', reply.slice(0, 60))
       onUpdateConversation(convId, {
         messages: [...next, { role: 'assistant', content: reply, meta: 'voz' }]
       })
@@ -149,17 +178,19 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
       speak(reply, () => {
         if (activeSessionRef.current) restartListening(recognitionRef.current)
       })
-    } catch {
+    } catch (err) {
+      console.error('[voz] erro na API:', err)
       replyingRef.current = false
       setReplying(false)
+      setLastError(`API: ${err.message}`)
       const fallback = 'Desculpe, não consegui processar isso agora. Pode repetir?'
       speak(fallback, () => {
         if (activeSessionRef.current) restartListening(recognitionRef.current)
       })
     }
-  }, [conversation?.title, messages, models, onUpdateConversation, restartListening, speak])
+  }, [onUpdateConversation, restartListening, showToast, speak])
 
-  const setupRecognition = useCallback(() => {
+  useEffect(() => {
     const rec = pickListener()
     if (!rec) return
     rec.continuous = true
@@ -179,11 +210,18 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
       }
     }
     rec.onerror = (e) => {
+      console.error('[voz] erro de reconhecimento:', e.error)
       listeningRef.current = false
       setListening(false)
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
         showToast?.('Permissão de microfone negada — libere o mic no navegador', 'error')
         activeSessionRef.current = false
+      } else if (activeSessionRef.current && !speakingRef.current && !replyingRef.current) {
+        setTimeout(() => {
+          if (activeSessionRef.current && !listeningRef.current) {
+            try { rec.start() } catch { /* ignore */ }
+          }
+        }, 1000)
       }
     }
     rec.onresult = (event) => {
@@ -192,14 +230,16 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
       if (!last) return
       const raw = last[0].transcript
       const phrase = normalizeVoicePhrase(raw)
-
+      console.log('[voz] ouvi:', phrase)
       setTranscripts((prev) => [...prev.slice(-49), { id: Date.now() + Math.random(), text: raw, heard: Date.now() }])
 
       if (!activeSessionRef.current || speakingRef.current || replyingRef.current) return
 
       const now = Date.now()
       if (STOP_PHRASES.some((p) => phrase.includes(p))) {
-        speak('Até mais! É só me chamar de novo.') 
+        awakeRef.current = false
+        setAwake(false)
+        speak('Até mais! É só me chamar de novo.')
         setTimeout(() => stopAll(), 900)
         return
       }
@@ -208,7 +248,8 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
         lastWakeAtRef.current = now
         awakeRef.current = true
         setAwake(true)
-        rec.stop()
+        setLastError(null)
+        try { rec.stop() } catch { /* ignore */ }
         setTimeout(() => {
           speak('Olá, meu nome é Dominic, o que tá pegando?', () => {
             if (activeSessionRef.current) restartListening(rec)
@@ -217,17 +258,28 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
         return
       }
 
-      if (awakeRef.current) {
-        if (phrase.length < 2) return
+      if (awakeRef.current && phrase.length >= 2) {
         askDominic(raw)
       }
     }
     recognitionRef.current = rec
   }, [askDominic, restartListening, speak, stopAll, showToast])
 
+  // Watchdog: religa o mic sozinho se o reconhecimento morrer
   useEffect(() => {
-    setupRecognition()
-  }, [setupRecognition])
+    const timer = setInterval(() => {
+      if (!activeSessionRef.current) return
+      const rec = recognitionRef.current
+      if (rec && !listeningRef.current && !speakingRef.current && !replyingRef.current) {
+        try {
+          rec.start()
+        } catch { /* ignore */ }
+      }
+    }, WATCHDOG_MS)
+    return () => clearInterval(timer)
+  }, [])
+
+  useEffect(() => () => stopAll(), [stopAll])
 
   const toggleListening = async () => {
     if (!support.recognition) {
@@ -247,6 +299,7 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
     activeSessionRef.current = true
     setAwake(false)
     awakeRef.current = false
+    setLastError(null)
     try {
       recognitionRef.current?.start()
     } catch {
@@ -269,7 +322,9 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
     onOpenChat?.(text)
   }
 
-  const dialogue = messages.filter((m) => typeof m.content === 'string' && !m.content.startsWith('<')).slice(-6)
+  const dialogue = messagesRef.current
+    .filter((m) => typeof m.content === 'string' && !m.content.startsWith('<'))
+    .slice(-6)
 
   return (
     <div className="voice-panel">
@@ -279,13 +334,17 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
       </div>
 
       <div className="voice-panel-content">
-        <div className={`voice-orb ${replying ? 'speaking' : ''} ${listening ? 'listening' : ''} ${speaking ? 'speaking' : ''}`}>
+        <div className={`voice-orb ${replying || speaking ? 'speaking' : ''} ${listening ? 'listening' : ''}`}>
           <img src="/favicon.svg" alt="Dominic" />
         </div>
 
         <div className="voice-status">
           {replying ? 'Dominic está pensando...' : speaking ? 'Dominic está falando...' : listening ? (awake ? 'Fale com o Dominic...' : 'Ouvindo... diga "Dominic"') : awake ? 'Dominic ativado' : 'Modo voz pronto'}
         </div>
+
+        {lastError && (
+          <div className="voice-warn">⚠️ {lastError}</div>
+        )}
 
         {!support.recognition && (
           <div className="voice-warn">Seu navegador não suporta reconhecimento de voz. Use Chrome ou Edge.</div>
