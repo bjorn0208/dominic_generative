@@ -1,81 +1,21 @@
-/* Override do breakpoint: layout desktop vale até 768px (não 900px) */
-@media (max-width: 768px) {
-  .app {
-    flex-direction: column;
-  }
-  .sidebar {
-    width: 100%;
-    min-width: 0;
-    flex-direction: row;
-    flex-wrap: wrap;
-    border-right: none;
-    border-bottom: var(--border);
-  }
-  .sidebar-logo {
-    border-bottom: none;
-    flex: 1;
-  }
-  .sidebar-nav {
-    flex-direction: row;
-    width: 100%;
-    overflow-x: auto;
-    padding: 8px;
-  }
-  .nav-item {
-    white-space: nowrap;
-    justify-content: center;
-  }
-  .sidebar-footer {
-    display: none;
-  }
-  .grid-2 {
-    grid-template-columns: 1fr;
-  }
-  .content {
-    padding: 16px;
-  }
-}
-
-/* Tabs de navegação no topbar — funcionam em qualquer viewport */
-.topbar {
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.topnav-tabs {
-  display: flex;
-  gap: 6px;
-  margin-left: 8px;
-}
-
-.topnav-tab {
-  padding: 7px 14px;
-  border: 2px solid var(--ink);
-  border-radius: 999px;
-  background: var(--white);
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.1s, transform 0.05s;
-  white-space: nowrap;
-}
-
-.topnav-tab:hover {
-  background: var(--paper);
-}
-
-.topnav-tab.active {
-  background: var(--ink);
-  color: var(--paper);
-  box-shadow: 3px 3px 0 var(--yellow);
-}
-
+/* Ajustes do topnav para o tema Neon Future */
 @media (max-width: 900px) {
   .topnav-tabs {
     order: 3;
     width: 100%;
     overflow-x: auto;
     padding-bottom: 4px;
-    margin-left: 0;
   }
+}
+
+.topnav-tab {
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.topnav-tab.active {
+  background: var(--grad-cta);
+  color: #eef4ff;
+  border-color: transparent;
+  box-shadow: var(--shadow-glow-violet);
 }
