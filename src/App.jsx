@@ -54,6 +54,8 @@ export default function App() {
   const [conversations, setConversations] = useState(loadConversations)
   const [activeConvId, setActiveConvId] = useState(null)
   const [toolRequest, setToolRequest] = useState(null)
+  const [smartMode, setSmartMode] = useState(false)
+  const [orbFlying, setOrbFlying] = useState(false)
   const toastTimer = useRef(null)
   const bgVideoRef = useRef(null)
 
@@ -201,6 +203,22 @@ export default function App() {
         <source src="/bg.mp4" type="video/mp4" />
       </video>
       <div className="bg-overlay" />
+      <button
+        className={`dominic-orb ${smartMode ? 'on' : ''} ${orbFlying ? 'flying' : ''}`}
+        onClick={() => {
+          setSmartMode((s) => !s)
+          setOrbFlying(true)
+        }}
+        onAnimationEnd={(e) => {
+          if (e.animationName === 'cometFlight') setOrbFlying(false)
+        }}
+        title={smartMode
+          ? 'Modo Dominic ATIVO: detecta imagem, vídeo, código ou app pelo prompt'
+          : 'Modo Dominic: detecta imagem, vídeo, código ou app pelo prompt'}
+      >
+        <img src="/favicon.svg" alt="Dominic" />
+        <span className="orb-tail" />
+      </button>
       <Sidebar
         brand={brand}
         view={view}
@@ -240,6 +258,7 @@ export default function App() {
               onUpdateConversation={handleUpdateConversation}
               toolRequest={toolRequest}
               onToolHandled={() => setToolRequest(null)}
+              smartMode={smartMode}
             />
           )}
           {view === 'providers' && (

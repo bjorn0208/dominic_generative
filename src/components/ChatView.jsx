@@ -60,10 +60,9 @@ function progressHtml(label, pct) {
   return `<div class="gen-box"><div class="gen-label">${label}... ${Math.floor(pct)}%</div><div class="gen-track"><div class="gen-bar" style="width:${Math.floor(pct)}%"></div></div></div>`
 }
 
-export default function ChatView({ models, ollamaOnline, brand, showToast, conversation, onNewConversation, onUpdateConversation, toolRequest, onToolHandled }) {
+export default function ChatView({ models, ollamaOnline, brand, showToast, conversation, onNewConversation, onUpdateConversation, toolRequest, onToolHandled, smartMode }) {
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
-  const [smartMode, setSmartMode] = useState(false)
   const [showTools, setShowTools] = useState(false)
   const [activeTool, setActiveTool] = useState(null)
   const [toolState, setToolState] = useState({})
@@ -402,7 +401,7 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
             <div className="big">🧠</div>
             <h2>Bem-vindo ao {brand.name}</h2>
             <p>
-              Aperte o botão da logo <b>Dominic</b> ao lado do campo de texto e peça
+              Aperte o orbe <b>Dominic</b> no canto da barra lateral e peça
               normalmente: <i>"gere um vídeo de uma planta crescendo"</i>, <i>"crie uma imagem de..."</i> ou
               <i>"faça uma página HTML de..."</i>.
             </p>
@@ -532,15 +531,6 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
       )}
 
       <div className="chat-input-wrap">
-        <button
-          className={`favicon-btn ${smartMode ? 'on' : ''}`}
-          onClick={() => setSmartMode(!smartMode)}
-          title={smartMode
-            ? 'Modo inteligente ATIVO: detecta imagem, vídeo, código ou app pelo prompt'
-            : 'Modo inteligente: detecta imagem, vídeo, código ou app pelo prompt'}
-        >
-          <img src="/favicon.svg" alt="Dominic" />
-        </button>
         <div className="ring-wrap">
           <div className={`chat-input ${smartMode ? 'smart' : ''}`}>
             <textarea

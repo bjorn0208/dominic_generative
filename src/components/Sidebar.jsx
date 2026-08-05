@@ -110,16 +110,6 @@ export default function Sidebar({ brand, view, setView, providerCount, conversat
         </div>
       </div>
 
-      <div className="sidebar-footer">
-        {expanded && (
-          <>
-            <span>⚡ {providerCount} fornecedores ativos</span>
-            <br />
-            <span style={{ opacity: 0.8 }}>● Ollama offline</span>
-          </>
-        )}
-      </div>
-
       <button className="sidebar-toggle" onClick={() => setExpanded(!expanded)} aria-label={expanded ? 'Recolher' : 'Expandir'}>
         <ChevronRight size={18} style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }} />
       </button>
