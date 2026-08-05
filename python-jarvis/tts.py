@@ -16,10 +16,26 @@ def _resolve_voice() -> str:
 
 def _synthesize_sync(text: str, path: str) -> None:
     async def _run() -> None:
-        communicate = edge_tts.Communicate(text, _resolve_voice(), rate=os.getenv("JARVIS_TTS_RATE", DEFAULT_RATE))
-        await communicate.save(path)
+        await _synthesize_async(text, path)
 
     asyncio.run(_run())
+
+
+async def _synthesize_async(text: str, path: str) -> None:
+    rate = os.getenv("JARVIS_TTS_RATE", DEFAULT_RATE)
+    voice = _resolve_voice()
+    last_error: Exception | None = None
+    for attempt in range(3):
+        try:
+            communicate = edge_tts.Communicate(text, voice, rate=rate, receive_timeout=90)
+            await communicate.save(path)
+            if os.path.getsize(path) > 0:
+                return
+        except Exception as exc:
+            last_error = exc
+        await asyncio.sleep(1.0 + attempt * 1.5)
+    if last_error:
+        raise last_error
 
 
 def _play_blocking(path: str) -> None:

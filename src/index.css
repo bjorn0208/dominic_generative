@@ -2046,3 +2046,14 @@ textarea.input { resize: vertical; }
   color: var(--text);
   word-break: break-word;
 }
+
+.jarvis-chip {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--neon-green);
+  background: rgba(52, 211, 153, 0.1);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+}

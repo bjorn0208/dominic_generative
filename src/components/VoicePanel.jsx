@@ -33,9 +33,11 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
   const [lastError, setLastError] = useState(null)
   const [transcripts, setTranscripts] = useState([])
   const [support, setSupport] = useState({ recognition: false, synthesis: false })
+  const [jarvisOnline, setJarvisOnline] = useState(false)
   const recognitionRef = useRef(null)
   const synthRef = useRef(null)
   const voiceRef = useRef(null)
+  const audioRef = useRef(null)
   const listeningRef = useRef(false)
   const speakingRef = useRef(false)
   const replyingRef = useRef(false)
@@ -46,7 +48,9 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
   const modelsRef = useRef([])
   const messagesRef = useRef([])
   const titleRef = useRef('Nova conversa')
+  const jarvisOnlineRef = useRef(false)
 
+  useEffect(() => { jarvisOnlineRef.current = jarvisOnline }, [jarvisOnline])
   useEffect(() => { modelsRef.current = models || [] }, [models])
   useEffect(() => { messagesRef.current = conversation?.messages || [] }, [conversation?.messages])
   useEffect(() => { titleRef.current = conversation?.title || 'Nova conversa' }, [conversation?.title])
@@ -57,6 +61,13 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
   }, [conversation, models.length, onNewConversation])
 
   useEffect(() => { convIdRef.current = conversation?.id || null }, [conversation?.id])
+
+  useEffect(() => {
+    fetch('/api/jarvis/health')
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('offline'))))
+      .then((d) => setJarvisOnline(d.status === 'ok'))
+      .catch(() => setJarvisOnline(false))
+  }, [])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -76,36 +87,64 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
   }, [])
 
   const speak = useCallback((text, done) => {
-    const synth = synthRef.current
-    if (!synth) {
-      done?.()
-      return
-    }
-    try { synth.cancel() } catch { /* ignore */ }
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = 'pt-BR'
-    if (voiceRef.current) utterance.voice = voiceRef.current
-    utterance.rate = 1.05
-    utterance.pitch = 0.95
-    utterance.onstart = () => {
-      speakingRef.current = true
-      setSpeaking(true)
-    }
+    speakingRef.current = true
+    setSpeaking(true)
     const finish = () => {
+      clearTimeout(safety)
       speakingRef.current = false
       setSpeaking(false)
       done?.()
     }
-    utterance.onend = finish
-    utterance.onerror = finish
-    setTimeout(() => {
-      if (speakingRef.current) {
-        speakingRef.current = false
-        setSpeaking(false)
-        done?.()
-      }
+    const safety = setTimeout(() => {
+      if (speakingRef.current) finish()
     }, MAX_UTTERANCE_MS)
-    synth.speak(utterance)
+    const speakBrowser = () => {
+      const synth = synthRef.current
+      if (!synth) {
+        finish()
+        return
+      }
+      try { synth.cancel() } catch { /* ignore */ }
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.lang = 'pt-BR'
+      if (voiceRef.current) utterance.voice = voiceRef.current
+      utterance.rate = 1.05
+      utterance.pitch = 0.95
+      utterance.onend = finish
+      utterance.onerror = finish
+      synth.speak(utterance)
+    }
+    const speakNeural = () => {
+      fetch('/api/jarvis/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      })
+        .then(async (r) => {
+          if (!r.ok) throw new Error('tts offline')
+          const blob = await r.blob()
+          const url = URL.createObjectURL(blob)
+          const audio = new Audio(url)
+          audioRef.current = audio
+          audio.onended = () => {
+            URL.revokeObjectURL(url)
+            clearTimeout(safety)
+            finish()
+          }
+          audio.onerror = () => {
+            URL.revokeObjectURL(url)
+            speakBrowser()
+          }
+          audio.play().catch(() => {
+            URL.revokeObjectURL(url)
+            speakBrowser()
+          })
+        })
+        .catch(() => speakBrowser())
+    }
+    try { audioRef.current?.pause() } catch { /* ignore */ }
+    if (jarvisOnlineRef.current) speakNeural()
+    else speakBrowser()
   }, [])
 
   const restartListening = useCallback((rec) => {
@@ -364,6 +403,9 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
         </div>
 
         <div className="voice-hint">
+          {jarvisOnline && (
+            <span className="jarvis-chip">✓ Voz neural ativa (Jarvis local)</span>
+          )}
           Ative o microfone e diga <strong>“Dominic”</strong>. Ele acorda, responde e você pode conversar com ele por voz. Para encerrar, diga <strong>“tchau Dominic”</strong>.
         </div>
 

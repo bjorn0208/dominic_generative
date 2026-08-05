@@ -222,6 +222,13 @@ async function route(req, res) {
     return
   }
 
+  // Proxy para o serviço Python (Jarvis local): /api/jarvis/tts, /api/jarvis/brain, /api/jarvis/stt
+  if (path.startsWith('/api/jarvis/')) {
+    const upstreamPath = path === '/api/jarvis/health' ? '/health' : path.replace('/api/jarvis', '/api')
+    await jarvisProxy(req, res, upstreamPath)
+    return
+  }
+
   // GET /api/health
   if (req.method === 'GET' && path === '/api/health') {
     sendJson(res, 200, { status: 'ok', service: 'Dominic Generative API', time: new Date().toISOString() })
@@ -735,6 +742,34 @@ const server = http.createServer(async (req, res) => {
 })
 
 const PORT = 5174
+
+const JARVIS_SERVICE_URL = process.env.JARVIS_SERVICE_URL || 'http://127.0.0.1:8765'
+
+async function jarvisProxy(req, res, path) {
+  try {
+    const body = await readBody(req)
+    const hasBody = Object.keys(body).length > 0
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 6000)
+    const upstream = await fetch(`${JARVIS_SERVICE_URL}${path}`, {
+      method: req.method,
+      headers: { 'Content-Type': 'application/json' },
+      body: hasBody ? JSON.stringify(body) : undefined,
+      signal: controller.signal
+    })
+    clearTimeout(timer)
+    const data = await upstream.arrayBuffer()
+    const contentType = upstream.headers.get('content-type') || 'application/json'
+    res.writeHead(upstream.status, {
+      'Content-Type': contentType,
+      'Content-Length': data.byteLength
+    })
+    res.end(Buffer.from(data))
+  } catch (err) {
+    res.writeHead(503, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ error: 'jarvis-offline', detail: err.message }))
+  }
+}
 
 const DOMINIC_SYSTEM_PROMPT = `Você é o Dominic, 28 anos. Amigo inteligente, criativo e bem humorado. Fala como no WhatsApp.
 
