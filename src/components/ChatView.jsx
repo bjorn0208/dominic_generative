@@ -111,6 +111,12 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
                     }
                   }, 300)
                 }
+              } else if (transcript.includes('desativar modo voz') && voiceMode && !busy) {
+                setVoiceMode(false)
+                setIsListening(false)
+                if (recognitionRef.current) {
+                  recognitionRef.current.stop()
+                }
               }
             }
           }
