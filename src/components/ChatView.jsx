@@ -73,58 +73,81 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
   const recognitionRef = useRef(null)
   const synthRef = useRef(null)
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      synthRef.current = window.speechSynthesis
-      if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-        recognitionRef.current = new SpeechRecognition()
-        recognitionRef.current.continuous = true
-        recognitionRef.current.interimResults = false
-        recognitionRef.current.lang = 'pt-BR'
-        
-        recognitionRef.current.onstart = () => setIsListening(true)
-        recognitionRef.current.onend = () => {
-          setIsListening(false)
-          if (voiceInitialized) {
-            setTimeout(() => recognitionRef.current?.start(), 1000)
-          }
-        }
-        recognitionRef.current.onerror = (e) => {
-          console.error('Speech recognition error:', e.error)
-          setIsListening(false)
-        }
-        recognitionRef.current.onresult = (event) => {
-          const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase().trim()
-          if (transcript.includes('ativar dominic') && !busy) {
-            if (!voiceMode) {
-              setVoiceMode(true)
+      useEffect(() => {
+        if (typeof window !== 'undefined') {
+          synthRef.current = window.speechSynthesis
+          if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+            recognitionRef.current = new SpeechRecognition()
+            recognitionRef.current.continuous = true
+            recognitionRef.current.interimResults = false
+            recognitionRef.current.lang = 'pt-BR'
+            
+            recognitionRef.current.onstart = () => setIsListening(true)
+            recognitionRef.current.onend = () => {
               setIsListening(false)
-              if (recognitionRef.current) {
-                recognitionRef.current.stop()
+              if (voiceInitialized) {
+                setTimeout(() => recognitionRef.current?.start(), 1000)
               }
-              setTimeout(() => {
-                if (synthRef.current) {
-                  const utterance = new SpeechSynthesisUtterance('Olá, meu nome é Dominic, o que tá pegando?')
-                  utterance.lang = 'pt-BR'
-                  synthRef.current.speak(utterance)
+            }
+            recognitionRef.current.onerror = (e) => {
+              console.error('Speech recognition error:', e.error)
+              setIsListening(false)
+            }
+            recognitionRef.current.onresult = (event) => {
+              const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase().trim()
+              if (transcript.includes('ativar dominic') && !busy) {
+                if (!voiceMode) {
+                  setVoiceMode(true)
+                  setIsListening(false)
+                  if (recognitionRef.current) {
+                    recognitionRef.current.stop()
+                  }
+                  setTimeout(() => {
+                    if (synthRef.current) {
+                      const utterance = new SpeechSynthesisUtterance('Olá, meu nome é Dominic, o que tá pegando?')
+                      utterance.lang = 'pt-BR'
+                      synthRef.current.speak(utterance)
+                    }
+                  }, 300)
                 }
-              }, 300)
+              }
             }
           }
+          setVoiceInitialized(true)
         }
-      }
-      setVoiceInitialized(true)
-    }
-  }, [])
+      }, [])
 
-  useEffect(() => {
-    if (voiceMode && !isListening && voiceInitialized && recognitionRef.current) {
-      recognitionRef.current.start()
-    } else if (!voiceMode && isListening) {
-      recognitionRef.current?.stop()
-    }
-  }, [voiceMode, voiceInitialized, isListening])
+      useEffect(() => {
+        if (voiceMode && !isListening && voiceInitialized && recognitionRef.current) {
+          recognitionRef.current.start()
+        } else if (!voiceMode && isListening) {
+          recognitionRef.current?.stop()
+        }
+      }, [voiceMode, voiceInitialized, isListening])
+
+      // Detect when voice mode is activated from sidebar (mobile-friendly)
+      useEffect(() => {
+        const handleSidebarVoiceActivate = () => {
+          if (!voiceMode && !busy) {
+            setVoiceMode(true)
+            setTimeout(() => {
+              if (synthRef.current) {
+                const utterance = new SpeechSynthesisUtterance('Olá, meu nome é Dominic, o que tá pegando?')
+                utterance.lang = 'pt-BR'
+                synthRef.current.speak(utterance)
+              }
+            }, 300)
+          }
+        }
+        
+        // Listen for custom event from sidebar orb click
+        window.addEventListener('activateDominic', handleSidebarVoiceActivate)
+        
+        return () => {
+          window.removeEventListener('activateDominic', handleSidebarVoiceActivate)
+        }
+      }, [voiceMode, busy])
 
   const messages = conversation?.messages || []
   const providerId = conversation?.providerId || ''
