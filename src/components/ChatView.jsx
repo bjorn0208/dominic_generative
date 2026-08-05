@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Plus, X } from 'lucide-react'
+import { Send, Plus, X, Mic, MicOff } from 'lucide-react'
 import { sendChat, generateImage, submitAgnesVideo, getAgnesVideoStatus, generateCode, generateApp, generateDicebearAvatar } from '../utils/api.js'
 
 const INTENT_RULES = [
@@ -66,6 +66,7 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
   const [showTools, setShowTools] = useState(false)
   const [activeTool, setActiveTool] = useState(null)
   const [toolState, setToolState] = useState({})
+  const [voiceMode, setVoiceMode] = useState(false)
   const bottomRef = useRef(null)
 
   const messages = conversation?.messages || []
@@ -363,6 +364,12 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
 
   return (
     <div className="chat-shell" style={{ height: 'calc(100vh - 148px)' }}>
+      {voiceMode && (
+        <div className="voice-layer">
+          <video src="/voice-bg.mp4" autoPlay loop muted playsInline preload="auto" />
+        </div>
+      )}
+
       <div className="chat-header">
         <div className="chat-model-select">
           <select
@@ -531,13 +538,22 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
       )}
 
       <div className="chat-input-wrap">
+        <button
+          className={`voice-btn ${voiceMode ? 'on' : ''}`}
+          onClick={() => setVoiceMode(!voiceMode)}
+          title={voiceMode ? 'Desativar modo voz' : 'Ativar modo voz'}
+        >
+          {voiceMode ? <MicOff size={18} /> : <Mic size={18} />}
+        </button>
         <div className="ring-wrap">
           <div className={`chat-input ${smartMode ? 'smart' : ''}`}>
             <textarea
               rows={2}
-              placeholder={smartMode
-                ? 'Ex: gere um vídeo de uma planta crescendo...'
-                : `Conversar com ${brand.name}...`}
+              placeholder={voiceMode
+                ? 'Modo voz ativo — o Dominic está ouvindo...'
+                : smartMode
+                  ? 'Ex: gere um vídeo de uma planta crescendo...'
+                  : `Conversar com ${brand.name}...`}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKey}
