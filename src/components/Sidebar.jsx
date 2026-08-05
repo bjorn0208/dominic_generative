@@ -91,20 +91,19 @@ export default function Sidebar({ brand, view, setView, providerCount, conversat
           {conversations.map((c) => (
             <div
               key={c.id}
-              className={`conv-item ${c.id === activeConvId ? 'active' : ''}`}
+              className={`conv-item icon-only ${c.id === activeConvId ? 'active' : ''}`}
               onClick={() => onSelectConversation(c.id)}
               title={c.title}
             >
-              <span className="conv-title">{c.title || 'Nova conversa'}</span>
               <button
                 className="mini-btn"
-                title="Excluir"
+                title={`Excluir: ${c.title}`}
                 onClick={(e) => {
                   e.stopPropagation()
                   onDeleteConversation(c.id)
                 }}
               >
-                <Trash2 size={13} />
+                <Trash2 size={14} />
               </button>
             </div>
           ))}

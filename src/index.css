@@ -328,6 +328,16 @@ input, select, textarea {
   overflow: hidden;
 }
 
+.conv-item.icon-only {
+  justify-content: center;
+  padding: 7px 0;
+}
+
+.conv-item.icon-only .mini-btn {
+  width: 30px;
+  height: 30px;
+}
+
 .conv-title {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -391,10 +401,15 @@ input, select, textarea {
 }
 
 .topbar-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   font-size: 18px;
   font-weight: 700;
   color: var(--text-hi);
   letter-spacing: -0.01em;
+  pointer-events: none;
+  text-shadow: 0 0 18px rgba(167, 139, 250, 0.35);
 }
 
 .topnav-tabs {
@@ -1007,6 +1022,23 @@ textarea.input { resize: vertical; }
   max-height: 140px;
 }
 
+/* Letras neon no modo Dominic (cores da sidebar) */
+.chat-input.smart textarea {
+  background: var(--grad-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 700;
+  text-shadow: 0 0 14px rgba(34, 211, 238, 0.45), 0 0 26px rgba(167, 139, 250, 0.4);
+  caret-color: var(--neon-cyan);
+}
+
+.chat-input.smart textarea::placeholder {
+  -webkit-text-fill-color: rgba(167, 139, 250, 0.8);
+  color: rgba(167, 139, 250, 0.8);
+  text-shadow: 0 0 12px rgba(167, 139, 250, 0.55);
+}
+
 .chat-input textarea::placeholder { color: var(--text-low); }
 
 .chat-tools-bar {
@@ -1246,4 +1278,5 @@ textarea.input { resize: vertical; }
   .content { padding: 16px; }
   .msg { max-width: 92%; }
   .grid-2 { grid-template-columns: 1fr; }
+  .topbar-title { position: static; transform: none; }
 }

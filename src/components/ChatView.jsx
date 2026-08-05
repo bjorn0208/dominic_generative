@@ -533,7 +533,7 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
 
       <div className="chat-input-wrap">
         <div className="ring-wrap">
-          <div className="chat-input">
+          <div className={`chat-input ${smartMode ? 'smart' : ''}`}>
             <button
               className={`favicon-btn ${smartMode ? 'on' : ''}`}
               onClick={() => setSmartMode(!smartMode)}
