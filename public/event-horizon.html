@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Event Horizon Orbit</title>
+<style>
+  :root { color-scheme: dark; --ink:#010108; --text:#f7f1ff; --amber:#ffb35c; --ice:#79e7ff; --pink:#ff4fc8; --violet:#8d6bff; --lime:#b7ff72; --coral:#ff6b6b; }
+  * { box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--ink); }
+  body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--text); }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; outline: none; }
+  canvas:active { cursor: grabbing; }
+  canvas:focus-visible { box-shadow: inset 0 0 0 3px var(--ice); }
+  .readout { position: fixed; z-index: 2; left: max(18px, env(safe-area-inset-left)); top: max(18px, env(safe-area-inset-top)); padding: 10px 12px 10px 10px; border-left: 2px solid rgba(121,231,255,0.55); pointer-events: none; text-shadow: 0 2px 12px #000; background: linear-gradient(90deg, rgba(8,8,24,0.75), transparent); }
+  .time { display: block; color: rgba(247,241,255,0.88); font-size: clamp(15px,1.9vw,22px); line-height: 1; font-weight: 600; letter-spacing: 0.12em; font-variant-numeric: tabular-nums; }
+  .legend { display: flex; gap: 0.85rem; margin-top: 7px; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(247,241,255,0.42); }
+  .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+  .legend i { width: 7px; height: 7px; border-radius: 50%; box-shadow: 0 0 8px currentColor; background: currentColor; }
+  .legend .h { color: var(--amber); }
+  .legend .m { color: var(--pink); }
+  .legend .s { color: var(--ice); }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  @media (max-width:560px) { .time { font-size: 14px; } .legend { font-size: 9px; gap: 0.55rem; } }
+  @media (max-height:480px) { .legend { display: none; } }
+  @media (prefers-reduced-motion: reduce) { canvas { cursor: default; } }
+</style>
+</head>
+<body>
+<main>
+  <canvas id="orbit" tabindex="0" role="img" aria-label="Event Horizon Orbit is loading local time."></canvas>
+  <div class="readout" aria-hidden="true">
+    <time id="display" class="time">--:--:--</time>
+    <p class="legend"><span class="h"><i></i>hour</span><span class="m"><i></i>minute</span><span class="s"><i></i>second</span></p>
+  </div>
+</main>
+<p id="status" class="sr-only" aria-live="polite">Loading local time.</p>
+<script>
+(function () {
+  "use strict";
+  var canvas = document.getElementById("orbit");
+  var ctx = canvas.getContext && canvas.getContext("2d");
+  var display = document.getElementById("display");
+  var status = document.getElementById("status");
+  if (!ctx) { status.textContent = "Canvas is unavailable."; return; }
+  var motion = matchMedia("(prefers-reduced-motion: reduce)");
+  var reduced = motion.matches;
+  var W = 1, H = 1, DPR = 1, raf = 0;
+  var yaw = -0.38, pitch = 0.22, targetYaw = yaw, targetPitch = pitch;
+  var auto = !reduced;
+  var lastMinute = "", clockStamp = "--:--:--";
+  var pointer = { down: false, x: 0, y: 0, id: null };
+  var TAU = Math.PI * 2;
+  var stars = [], dust = [], sparks = [], streamers = [];
+  function pad(n) { return n < 10 ? "0" + n : String(n); }
+  function seeded(i) { var x = Math.sin(i * 1297.31 + 23.9) * 43758.5453; return x - Math.floor(x); }
+  function mix(a, b, t) { return a + (b - a) * t; }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function rebuildField() {
+    stars = []; dust = []; sparks = []; streamers = [];
+    var i, u, v, r, a, z, q;
+    for (i = 0; i < 1400; i += 1) {
+      u = seeded(i * 4); v = seeded(i * 4 + 1); r = 3 + seeded(i * 4 + 2) * 26; a = u * TAU; z = (v * 2 - 1) * r;
+      q = Math.sqrt(Math.max(0, r * r - z * z));
+      stars.push({ x: Math.cos(a) * q, y: z, z: Math.sin(a) * q, s: 0.3 + seeded(i * 4 + 3) * 1.5, w: seeded(i * 7) > 0.78, c: seeded(i * 11) });
+    }
+    for (i = 0; i < 420; i += 1) {
+      dust.push({ phase: seeded(i * 3) * TAU, radius: 1.15 + seeded(i * 3 + 1) * 2.35, speed: 0.35 + seeded(i * 3 + 2) * 1.4, size: 0.4 + seeded(i * 5) * 1.8, hue: seeded(i * 9), tilt: 0.7 + seeded(i * 13) * 0.5 });
+    }
+    for (i = 0; i < 180; i += 1) {
+      sparks.push({ phase: seeded(i * 6 + 1) * TAU, radius: 1.05 + seeded(i * 6 + 2) * 0.55, speed: 1.8 + seeded(i * 6 + 3) * 3.2, size: 0.5 + seeded(i * 6 + 4) * 1.4, warm: seeded(i * 8) > 0.45 });
+    }
+    for (i = 0; i < 24; i += 1) {
+      streamers.push({ phase: seeded(i * 17) * TAU, length: 0.35 + seeded(i * 17 + 1) * 1.1, radius: 1.4 + seeded(i * 17 + 2) * 1.8, hue: seeded(i * 17 + 3) * 360, speed: 0.08 + seeded(i * 17 + 4) * 0.2 });
+    }
+  }
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio, 2);
+    W = Math.max(1, canvas.clientWidth); H = Math.max(1, canvas.clientHeight);
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+  }
+  function orbitToScreen(x, y, z) { return { x: x / z * 1080 + W / 2, y: -y / z * 1080 + H / 2 }; }
+  function project(x, y, z, r, outlineOnly) { var q = orbitToScreen(x, y, z); var d = -z / Math.sqrt(x * x + y * y + z * z); var size = r * d * 1080 / z / 2; var rx = q.x - (Math.sin(yaw) * q.y * 0.28 + Math.cos(yaw) * q.x * 0.28); var ry = q.y - (Math.cos(yaw) * q.y * 0.28 - Math.sin(yaw) * q.x * 0.28); var scale = Math.max(0.02, Math.min(1, d)); if (outlineOnly) { return { ox: rx, oy: ry, r: size * 0.5, d, scale }; } else { var a = Math.atan2(y, x); var angle = a + Math.PI / 2; var wob = Math.sin(angle * 8) * 0.08 + Math.sin(angle * 12) * 0.04; var amp = Math.sin(d * 2.5 + angle * 6) * 0.18; var el = d * 0.14 * (0.8 + Math.sin(angle * 3) * 0.2) * Math.abs(Math.sin(d * 2.5)); var sx = rx + Math.cos(angle + wob + amp) * (size * 1.2); var sy = ry + Math.sin(angle + wob + amp) * (size * 1.2); return { sx, sy, size, d, scale }; }
+  }
+  function drawPoint(x, y, size, col) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, size, 0, TAU); ctx.fill(); }
+  function drawRing(x, y, r, col, lineW) { ctx.strokeStyle = col; ctx.lineWidth = lineW; ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.06, 0, 0, TAU); ctx.stroke(); }
+  function renderStars() { var i, p, a, c, o; ctx.fillStyle = "#fff"; for (i = 0; i < stars.length; i += 1) { p = stars[i]; a = project(p.x, p.y, p.z, p.s); if (p.w) { ctx.globalAlpha = 1; ctx.shadowBlur = 12; ctx.shadowColor = "#fff"; } else { ctx.globalAlpha = 1; ctx.shadowBlur = 0; } if (a.d > 0 && a.scale > 0) { var br = clamp(p.c, 0.4, 1); ctx.globalAlpha = br * (1 - Math.max(0, a.d - 3) * 0.1) * p.s * 0.5; drawPoint(a.ox, a.oy, 1, "#fff"); } } }
+  function renderDust() { var i, p, a, s, hue; for (i = 0; i < dust.length; i += 1) { p = dust[i]; p.phase += p.speed; hue = p.hue * 360; a = project(Math.cos(p.phase) * p.radius, 0, Math.sin(p.phase) * p.radius, p.size); if (a.d > 0 && a.scale > 0) { s = a.d * (0.6 + Math.sin(Date.now() * 0.001 * (i % 3 + 1)) * 0.4); drawPoint(a.sx, a.sy, s, `hsl(${hue},80%,45%)`); } } }
+  function renderSparks() { var i, p, a; for (i = 0; i < sparks.length; i += 1) { p = sparks[i]; p.phase += p.speed; a = project(Math.cos(p.phase) * p.radius, 0, Math.sin(p.phase) * p.radius, p.size); if (a.d > 0 && a.scale > 0) { if (p.warm) { ctx.shadowColor = "#ff4fc8"; ctx.shadowBlur = 8; ctx.globalCompositeOperation = "screen"; drawPoint(a.sx, a.sy, a.d * 1.5, "#ff4fc8"); } else { drawPoint(a.sx, a.sy, a.d * 1.5, "#79e7ff"); } ctx.globalCompositeOperation = "source-over"; } } }
+  function renderStreamers() { var i, p, a, hue; ctx.lineWidth = 2; ctx.shadowBlur = 0; for (i = 0; i < streamers.length; i += 1) { p = streamers[i]; p.phase += p.speed; hue = p.hue; a = project(Math.cos(p.phase) * p.radius, 0, Math.sin(p.phase) * p.radius, p.size); if (a.d > 0 && a.scale > 0) { ctx.globalAlpha = 0.55 * a.scale; ctx.strokeStyle = `hsla(${hue},85%,55%,0.8)`; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(a.sx + Math.cos(p.phase + Math.PI) * p.length * a.d, a.sy + Math.sin(p.phase + Math.PI) * p.length * a.d); ctx.stroke(); } } }
+  function renderSky() { var gradient = ctx.createLinearGradient(0, 0, 0, H); gradient.addColorStop(0, "#010108"); gradient.addColorStop(0.5, "#080820"); gradient.addColorStop(1, "#010108"); ctx.fillStyle = gradient; ctx.fillRect(0, 0, W, H); }
+  function renderTime() { var d = new Date(); var h = d.getHours(), m = d.getMinutes(), s = d.getSeconds(); var pad = s => s < 10 ? "0" + s : s; var now = pad(h) + ":" + pad(m) + ":" + pad(s); if (now !== lastMinute) { display.textContent = now; lastMinute = now; } }
+  function animate() {
+    renderSky(); renderStars(); renderDust(); renderSparks(); renderStreamers(); renderTime();
+    if (auto) {
+      targetYaw += (-0.0005 + Math.random() * 0.001); targetPitch += (-0.0003 + Math.random() * 0.0006);
+      yaw += (targetYaw - yaw) * 0.08; pitch += (targetPitch - pitch) * 0.08;
+    }
+    if (pointer.down) { var dx = (pointer.x - pointer.startX) * 0.008, dy = (pointer.y - pointer.startY) * 0.008; yaw += dx; pitch += dy; }
+    raf = requestAnimationFrame(animate);
+  }
+  function start() {
+    rebuildField(); resize(); renderSky(); renderStars(); renderDust(); renderSparks(); renderStreamers(); renderTime(); animate(); status.textContent = "Running."; }
+  function stop() { if (raf) cancelAnimationFrame(raf); }
+  function init() {
+    canvas.addEventListener("pointerdown", e => {
+      pointer.down = true; pointer.id = e.pointerId || null;
+      pointer.startX = e.clientX; pointer.startY = e.clientY;
+      canvas.setPointerCapture(e.pointerId);
+    });
+    canvas.addEventListener("pointermove", e => {
+      if (!pointer.down) return;
+      pointer.x = e.clientX; pointer.y = e.clientY;
+    });
+    canvas.addEventListener("pointerup", e => { pointer.down = false; pointer.id = null; });
+    canvas.addEventListener("pointerleave", e => { pointer.down = false; pointer.id = null; });
+    canvas.addEventListener("wheel", e => { e.preventDefault(); targetYaw += e.deltaX * 0.005; targetPitch += e.deltaY * 0.005; }, { passive: false });
+    canvas.addEventListener("dblclick", e => { rebuildField(); });
+    window.addEventListener("resize", () => { resize(); stop(); start(); });
+    window.addEventListener("focus", () => { if (auto) start(); });
+    window.addEventListener("blur", stop);
+    start();
+  }
+  window.addEventListener("load", () => {
+    if (!ctx) { status.textContent = "Canvas init failed."; return; }
+    init();
+    status.textContent = "";
+  });
+})();
+</script>
+</body>
+</html>

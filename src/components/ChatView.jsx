@@ -67,7 +67,64 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
   const [activeTool, setActiveTool] = useState(null)
   const [toolState, setToolState] = useState({})
   const [voiceMode, setVoiceMode] = useState(false)
+  const [isListening, setIsListening] = useState(false)
+  const [voiceInitialized, setVoiceInitialized] = useState(false)
   const bottomRef = useRef(null)
+  const recognitionRef = useRef(null)
+  const synthRef = useRef(null)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      synthRef.current = window.speechSynthesis
+      if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+        recognitionRef.current = new SpeechRecognition()
+        recognitionRef.current.continuous = true
+        recognitionRef.current.interimResults = false
+        recognitionRef.current.lang = 'pt-BR'
+        
+        recognitionRef.current.onstart = () => setIsListening(true)
+        recognitionRef.current.onend = () => {
+          setIsListening(false)
+          if (voiceInitialized) {
+            setTimeout(() => recognitionRef.current?.start(), 1000)
+          }
+        }
+        recognitionRef.current.onerror = (e) => {
+          console.error('Speech recognition error:', e.error)
+          setIsListening(false)
+        }
+        recognitionRef.current.onresult = (event) => {
+          const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase().trim()
+          if (transcript.includes('ativar dominic') && !busy) {
+            if (!voiceMode) {
+              setVoiceMode(true)
+              setIsListening(false)
+              if (recognitionRef.current) {
+                recognitionRef.current.stop()
+              }
+              setTimeout(() => {
+                if (synthRef.current) {
+                  const utterance = new SpeechSynthesisUtterance('Olá, meu nome é Dominic, o que tá pegando?')
+                  utterance.lang = 'pt-BR'
+                  synthRef.current.speak(utterance)
+                }
+              }, 300)
+            }
+          }
+        }
+      }
+      setVoiceInitialized(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (voiceMode && !isListening && voiceInitialized && recognitionRef.current) {
+      recognitionRef.current.start()
+    } else if (!voiceMode && isListening) {
+      recognitionRef.current?.stop()
+    }
+  }, [voiceMode, voiceInitialized, isListening])
 
   const messages = conversation?.messages || []
   const providerId = conversation?.providerId || ''
@@ -366,7 +423,7 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
     <div className="chat-shell" style={{ height: 'calc(100vh - 148px)' }}>
       {voiceMode && (
         <div className="voice-layer">
-          <video src="/voice-bg.mp4" autoPlay loop muted playsInline preload="auto" />
+          <iframe src="/event-horizon.html" title="Event Horizon Orbit" frameBorder="0" allow="autoplay; fullscreen" allowFullScreen />
         </div>
       )}
 
@@ -540,7 +597,18 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
       <div className="chat-input-wrap">
         <button
           className={`voice-btn ${voiceMode ? 'on' : ''}`}
-          onClick={() => setVoiceMode(!voiceMode)}
+          onClick={() => {
+            setVoiceMode(!voiceMode)
+            if (!voiceMode) {
+              setTimeout(() => {
+                if (synthRef.current) {
+                  const utterance = new SpeechSynthesisUtterance('Olá, meu nome é Dominic, o que tá pegando?')
+                  utterance.lang = 'pt-BR'
+                  synthRef.current.speak(utterance)
+                }
+              }, 300)
+            }
+          }}
           title={voiceMode ? 'Desativar modo voz' : 'Ativar modo voz'}
         >
           {voiceMode ? <MicOff size={18} /> : <Mic size={18} />}
