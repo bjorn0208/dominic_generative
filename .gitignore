@@ -30,3 +30,8 @@ test-*.cjs
 # Zips e arquivos temporários grandes
 all-files.zip
 ziGw6ncK
+
+# Python
+__pycache__/
+*.pyc
+.env
