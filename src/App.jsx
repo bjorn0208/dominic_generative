@@ -180,6 +180,10 @@ export default function App() {
 
   return (
     <div className="app">
+      <video className="bg-video" autoPlay loop muted playsInline preload="auto">
+        <source src="/bg.mp4" type="video/mp4" />
+      </video>
+      <div className="bg-overlay" />
       <Sidebar
         brand={brand}
         view={view}
