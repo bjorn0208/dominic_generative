@@ -54,6 +54,17 @@ export default function App() {
   const [conversations, setConversations] = useState(loadConversations)
   const [activeConvId, setActiveConvId] = useState(null)
   const toastTimer = useRef(null)
+  const bgVideoRef = useRef(null)
+
+  useEffect(() => {
+    const v = bgVideoRef.current
+    if (!v) return
+    v.play().catch(() => {
+      const tryPlay = () => v.play().catch(() => {})
+      document.addEventListener('click', tryPlay, { once: true })
+      document.addEventListener('touchstart', tryPlay, { once: true })
+    })
+  }, [])
 
   useEffect(() => {
     try {
@@ -180,7 +191,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <video className="bg-video" autoPlay loop muted playsInline preload="auto">
+      <video ref={bgVideoRef} className="bg-video" autoPlay loop muted playsInline preload="auto">
         <source src="/bg.mp4" type="video/mp4" />
       </video>
       <div className="bg-overlay" />
