@@ -1999,3 +1999,50 @@ textarea.input { resize: vertical; }
     font-size: 15px;
   }
 }
+
+/* ---------- Diálogo por voz ---------- */
+.voice-dialogue {
+  width: min(560px, 92%);
+  max-height: 180px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(17, 24, 45, 0.55);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+
+.voice-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.voice-line-label {
+  flex-shrink: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-top: 1px;
+}
+
+.voice-line.user .voice-line-label {
+  color: var(--neon-cyan);
+  background: rgba(34, 211, 238, 0.12);
+}
+
+.voice-line.dominic .voice-line-label {
+  color: var(--neon-violet);
+  background: rgba(167, 139, 250, 0.14);
+}
+
+.voice-line-text {
+  color: var(--text);
+  word-break: break-word;
+}

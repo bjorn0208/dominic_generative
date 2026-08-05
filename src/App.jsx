@@ -272,7 +272,14 @@ export default function App() {
             />
           )}
           {view === 'voice' && (
-            <VoicePanel showToast={showToast} onOpenChat={handleOpenVoiceChat} />
+            <VoicePanel
+              models={models}
+              conversation={activeConversation}
+              onNewConversation={handleNewConversation}
+              onUpdateConversation={handleUpdateConversation}
+              showToast={showToast}
+              onOpenChat={handleOpenVoiceChat}
+            />
           )}
           {view === 'providers' && (
             <ProvidersView
