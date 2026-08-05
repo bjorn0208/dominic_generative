@@ -11,6 +11,10 @@
   "functions": {
     "api/**/*.js": {
       "maxDuration": 60
+    },
+    "api/jarvis/tts.py": {
+      "runtime": "python3.12",
+      "maxDuration": 60
     }
   }
 }

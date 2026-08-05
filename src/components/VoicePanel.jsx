@@ -404,7 +404,7 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
 
         <div className="voice-hint">
           {jarvisOnline && (
-            <span className="jarvis-chip">✓ Voz neural ativa (Jarvis local)</span>
+            <span className="jarvis-chip">✓ Voz neural ativa</span>
           )}
           Ative o microfone e diga <strong>“Dominic”</strong>. Ele acorda, responde e você pode conversar com ele por voz. Para encerrar, diga <strong>“tchau Dominic”</strong>.
         </div>
