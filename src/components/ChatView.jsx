@@ -1,14 +1,69 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Plus, Image, Video, Code2, Wrench, X, ChevronDown, Menu } from 'lucide-react'
-import { sendChat } from '../utils/api.js'
-import { generateImage } from '../utils/api.js'
-import { submitAgnesVideo, getAgnesVideoStatus } from '../utils/api.js'
-import { generateCode } from '../utils/api.js'
-import { generateApp, modifyApp, suggestAppImprovements, generateAppName } from '../utils/api.js'
+import { Send, Plus, X } from 'lucide-react'
+import { sendChat, generateImage, submitAgnesVideo, getAgnesVideoStatus, generateCode, generateApp, generateDicebearAvatar } from '../utils/api.js'
 
-export default function ChatView({ models, ollamaOnline, brand, showToast, conversation, onNewConversation, onUpdateConversation }) {
+const INTENT_RULES = [
+  { type: 'video', re: /\b(vídeo|video|anima\w*|timelapse|cresc\w*|germin\w*|evolu\w*|movi\w*|motion|partículas|particulas)\b/i },
+  { type: 'image', re: /\b(imagem|imagens|foto|fotos|desenh\w*|ilustr\w*|pintur\w*|logotipo|logo|wallpaper|avatar|retrato|paisagem)\b/i },
+  { type: 'code', re: /\b(código|codigo|program\w*|função|funcao|script|bug|erro|html|css|javascript|typescript|python|sql|api|frontend|backend)\b/i },
+  { type: 'app', re: /\b(app|aplicativo|dashboard|landing|loja virtual|portfólio|portfolio|e-commerce|blog)\b/i }
+]
+
+const GENERATION_LABELS = {
+  video: 'Gerando seu vídeo',
+  image: 'Gerando sua imagem',
+  code: 'Gerando seu código',
+  app: 'Criando seu app'
+}
+
+const CSS_DEMO_WRAPPER = (css) => `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+${css}
+</style>
+</head>
+<body style="margin:0;font-family:system-ui,sans-serif;padding:24px">
+<div style="border:1px solid #ddd;border-radius:10px;padding:20px;max-width:520px">
+  <h1>Pré-visualização do seu CSS</h1>
+  <p>Documento de demonstração usando o CSS gerado.</p>
+  <button style="padding:8px 16px;border-radius:6px">Botão de exemplo</button>
+  <a href="#">Link de exemplo</a>
+</div>
+</body>
+</html>`
+
+function escapeHtml(s) {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function stripFences(code) {
+  return code
+    .trim()
+    .replace(/^```[a-zA-Z]*\s*\n?/, '')
+    .replace(/\n?```\s*$/, '')
+}
+
+function detectIntent(text) {
+  for (const rule of INTENT_RULES) {
+    if (rule.re.test(text)) return rule.type
+  }
+  return null
+}
+
+function progressHtml(label, pct) {
+  return `<div class="gen-box"><div class="gen-label">${label}... ${Math.floor(pct)}%</div><div class="gen-track"><div class="gen-bar" style="width:${Math.floor(pct)}%"></div></div></div>`
+}
+
+export default function ChatView({ models, ollamaOnline, brand, showToast, conversation, onNewConversation, onUpdateConversation, toolRequest, onToolHandled }) {
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
+  const [smartMode, setSmartMode] = useState(false)
   const [showTools, setShowTools] = useState(false)
   const [activeTool, setActiveTool] = useState(null)
   const [toolState, setToolState] = useState({})
@@ -23,6 +78,14 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
       onNewConversation()
     }
   }, [conversation, models.length, onNewConversation])
+
+  useEffect(() => {
+    if (toolRequest) {
+      setActiveTool(toolRequest)
+      setShowTools(true)
+      onToolHandled()
+    }
+  }, [toolRequest, onToolHandled])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -50,8 +113,14 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
 
   const handleSend = async () => {
     const text = input.trim()
-    if (!text || busy || !model || !conversation) return
+    if (!text || busy || !conversation) return
 
+    if (smartMode) {
+      const intent = detectIntent(text)
+      if (intent) return handleSmartSend(text, intent)
+    }
+
+    if (!model) return
     const userMsg = { role: 'user', content: text }
     const next = [...messages, userMsg]
     onUpdateConversation(conversation.id, {
@@ -84,12 +153,116 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
     }
   }
 
-  // Tool handlers
+  // ---------- Modo inteligente: detecta e gera direto no chat ----------
+  const handleSmartSend = async (text, intent) => {
+    const label = GENERATION_LABELS[intent]
+    const userMsg = { role: 'user', content: text }
+    const msgs = [
+      ...messages,
+      userMsg,
+      { role: 'assistant', content: progressHtml(label, 3) }
+    ]
+    onUpdateConversation(conversation.id, {
+      messages: msgs,
+      title: conversation.title === 'Nova conversa' ? text.slice(0, 60) : conversation.title
+    })
+    setInput('')
+    setBusy(true)
+
+    const progressIdx = msgs.length - 1
+    let pct = 3
+    const patch = (content, meta = null) => {
+      msgs[progressIdx] = { ...msgs[progressIdx], content, ...(meta ? { meta } : {}) }
+      onUpdateConversation(conversation.id, { messages: msgs })
+    }
+
+    const ticker = setInterval(() => {
+      pct = Math.min(pct + 2 + Math.random() * 6, 88)
+      patch(progressHtml(label, pct))
+    }, 800)
+
+    try {
+      if (intent === 'video') {
+        const data = await submitAgnesVideo({ prompt: text, duration: 5, aspect: '16:9' })
+        pct = 15
+        patch(progressHtml(label, pct))
+        const poll = setInterval(async () => {
+          try {
+            const st = await getAgnesVideoStatus(data.videoId)
+            if (st.status === 'completed' && st.videoUrl) {
+              clearInterval(poll)
+              clearInterval(ticker)
+              patch(
+                `<div class="gen-box done"><div class="gen-label">✅ Vídeo gerado</div><video class="gen-media" controls src="${escapeHtml(st.videoUrl)}"></video></div>`,
+                'vídeo via Agnes AI'
+              )
+            } else if (st.status === 'failed') {
+              clearInterval(poll)
+              clearInterval(ticker)
+              patch(`<div class="gen-box err">⚠️ Falha na geração: ${escapeHtml(st.error || 'erro desconhecido')}</div>`)
+            } else {
+              pct = Math.min(pct + 4 + Math.random() * 6, 95)
+              patch(progressHtml(label, pct))
+            }
+          } catch (e) {
+            clearInterval(poll)
+            clearInterval(ticker)
+            patch(`<div class="gen-box err">⚠️ ${escapeHtml(e.message)}</div>`)
+          }
+        }, 10000)
+      } else if (intent === 'image') {
+        const data = await generateImage({ model: 'stabilityai/stable-diffusion-3-medium-diffusers', prompt: text })
+        clearInterval(ticker)
+        patch(
+          `<div class="gen-box done"><img class="gen-media" src="data:${data.mimeType || 'image/png'};base64,${data.result}" alt="imagem gerada"></div>`,
+          `imagem via ${data.model}`
+        )
+      } else if (intent === 'code') {
+        let lang = 'html'
+        if (/\bpython\b/i.test(text)) lang = 'python'
+        else if (/\bsql\b/i.test(text)) lang = 'sql'
+        else if (/\bjavascript|typescript|js\b/i.test(text)) lang = 'js'
+        else if (/\bcss\b/i.test(text)) lang = 'css'
+        const data = await generateCode({ lang, prompt: text })
+        clearInterval(ticker)
+        const clean = stripFences(data.code)
+        const escaped = escapeHtml(clean)
+        let preview = ''
+        if (lang === 'html') {
+          preview = `<iframe class="code-preview" sandbox="allow-scripts" srcDoc="${escapeHtml(clean)}" title="Preview"></iframe>`
+        } else if (lang === 'css') {
+          preview = `<iframe class="code-preview" sandbox="allow-scripts" srcDoc="${escapeHtml(CSS_DEMO_WRAPPER(clean))}" title="Preview"></iframe>`
+        } else if (lang === 'js') {
+          const url = URL.createObjectURL(new Blob([clean], { type: 'text/javascript' }))
+          preview = `<iframe class="code-preview" sandbox="allow-scripts" src="${url}" title="Preview"></iframe>`
+        }
+        patch(
+          `<div class="code">${escaped}</div>${preview}`,
+          `código ${lang}`
+        )
+      } else if (intent === 'app') {
+        const data = await generateApp({ prompt: text })
+        clearInterval(ticker)
+        const escaped = escapeHtml(data.code)
+        patch(
+          `<div class="gen-box done"><div class="gen-label">✅ App gerado</div></div><div class="code">${escaped}</div>`,
+          'app gerado'
+        )
+      }
+    } catch (err) {
+      clearInterval(ticker)
+      patch(`<div class="gen-box err">⚠️ ${escapeHtml(err.message)}</div>`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Tool handlers (painel manual, aberto pela sidebar)
   const handleImageGenerate = async (prompt) => {
     setToolState(s => ({ ...s, imageLoading: true, imageError: null }))
     try {
       const data = await generateImage({ model: 'stabilityai/stable-diffusion-3-medium-diffusers', prompt })
-      const result = `![imagem gerada](data:${data.mimeType || 'image/png'};base64,${data.result})`
+      const result = `<div class="gen-box done"><img class="gen-media" src="data:${data.mimeType || 'image/png'};base64,${data.result}" alt="imagem gerada"></div>`
       addMessage(result, 'assistant', `imagem via ${data.model}`)
     } catch (err) {
       setToolState(s => ({ ...s, imageError: err.message }))
@@ -103,13 +276,12 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
     try {
       const data = await submitAgnesVideo({ prompt, duration: 5, aspect: '16:9' })
       setToolState(s => ({ ...s, videoId: data.videoId, videoLoading: false, videoPolling: true }))
-      // Poll for completion
       const poll = setInterval(async () => {
         try {
           const st = await getAgnesVideoStatus(data.videoId)
           if (st.status === 'completed' && st.videoUrl) {
             clearInterval(poll)
-            const result = `🎬 [Vídeo gerado](${st.videoUrl})`
+            const result = `<div class="gen-box done"><div class="gen-label">✅ Vídeo gerado</div><video class="gen-media" controls src="${escapeHtml(st.videoUrl)}"></video></div>`
             addMessage(result, 'assistant', 'vídeo via Agnes AI')
             setToolState(s => ({ ...s, videoPolling: false, videoId: null }))
           } else if (st.status === 'failed') {
@@ -130,11 +302,15 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
     setToolState(s => ({ ...s, codeLoading: true, codeError: null }))
     try {
       const data = await generateCode({ lang, prompt })
-      const clean = data.code
-        .trim()
-        .replace(/^```[a-zA-Z]*\s*\n?/, '')
-        .replace(/\n?```\s*$/, '')
-      const result = `\`\`\`${lang}\n${clean}\n\`\`\``
+      const clean = stripFences(data.code)
+      const escaped = escapeHtml(clean)
+      let preview = ''
+      if (lang === 'html') {
+        preview = `<iframe class="code-preview" sandbox="allow-scripts" srcDoc="${escapeHtml(clean)}" title="Preview"></iframe>`
+      } else if (lang === 'css') {
+        preview = `<iframe class="code-preview" sandbox="allow-scripts" srcDoc="${escapeHtml(CSS_DEMO_WRAPPER(clean))}" title="Preview"></iframe>`
+      }
+      const result = `<div class="code">${escaped}</div>${preview}`
       addMessage(result, 'assistant', `código ${lang}`)
     } catch (err) {
       setToolState(s => ({ ...s, codeError: err.message }))
@@ -147,7 +323,7 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
     setToolState(s => ({ ...s, appLoading: true, appError: null }))
     try {
       const data = await generateApp({ prompt })
-      addMessage(data.code, 'assistant', 'app gerado')
+      addMessage(`<div class="code">${escapeHtml(data.code)}</div>`, 'assistant', 'app gerado')
     } catch (err) {
       setToolState(s => ({ ...s, appError: err.message }))
     } finally {
@@ -226,11 +402,12 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
             <div className="big">🧠</div>
             <h2>Bem-vindo ao {brand.name}</h2>
             <p>
-              Escolha um fornecedor e modelo acima, depois converse.
-              As respostas chegam mascaradas como {brand.name}.
+              Aperte o botão da logo <b>Dominic</b> ao lado do campo de texto e peça
+              normalmente: <i>"gere um vídeo de uma planta crescendo"</i>, <i>"crie uma imagem de..."</i> ou
+              <i>"faça uma página HTML de..."</i>.
             </p>
             <div style={{ marginTop: 16, fontSize: 13, color: '#666' }}>
-              Digite <b>/</b> para abrir ferramentas: Imagem, Vídeo, Código, App.
+              As ferramentas manuais (Imagem, Vídeo, Código, App, Avatar) ficam na barra lateral.
             </div>
           </div>
         )}
@@ -248,18 +425,19 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
 
       {/* Tools Panel */}
       {activeTool && (
-        <div className="tool-panel" style={{ borderTop: '1px solid #333', padding: 16, background: '#0a0a0a' }}>
+        <div className="tool-panel">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <h3 style={{ margin: 0, fontSize: 15 }}>{activeTool === 'image' && '🎨 Gerar Imagem'
               || activeTool === 'video' && '🎬 Gerar Vídeo'
               || activeTool === 'code' && '👨‍💻 Gerar Código'
-              || activeTool === 'app' && '🛠️ Criar App'}</h3>
+              || activeTool === 'app' && '🛠️ Criar App'
+              || activeTool === 'avatar' && '🧑‍🤖 Gerar Avatar'}</h3>
             <button className="btn ghost" onClick={closeTool}><X size={16} /></button>
           </div>
 
           {activeTool === 'image' && (
             <div>
-              <input className="input" placeholder="Descreva a imagem..." 
+              <input className="input" placeholder="Descreva a imagem..."
                 value={toolState.imagePrompt || ''}
                 onChange={e => setToolState(s => ({ ...s, imagePrompt: e.target.value }))}
                 style={{ marginBottom: 8 }} />
@@ -354,31 +532,22 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
       )}
 
       <div className="chat-input-wrap">
-        <div className="chat-input">
-          <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-            <button className="btn ghost" style={{ padding: 6, fontSize: 14 }} onClick={() => { setActiveTool('image'); setShowTools(!showTools); }}>
-              <Image size={16} /> Imagem
-            </button>
-            <button className="btn ghost" style={{ padding: 6, fontSize: 14 }} onClick={() => { setActiveTool('video'); setShowTools(!showTools); }}>
-              <Video size={16} /> Vídeo
-            </button>
-            <button className="btn ghost" style={{ padding: 6, fontSize: 14 }} onClick={() => { setActiveTool('code'); setShowTools(!showTools); }}>
-              <Code2 size={16} /> Código
-            </button>
-            <button className="btn ghost" style={{ padding: 6, fontSize: 14 }} onClick={() => { setActiveTool('app'); setShowTools(!showTools); }}>
-              <Wrench size={16} /> App
-            </button>
-            <button className="btn ghost" style={{ padding: 6, fontSize: 14 }} onClick={() => { setActiveTool('avatar'); setShowTools(!showTools); }}>
-              <div style={{ width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🧑‍🤖</div> Avatar
-            </button>
-            <button className="btn ghost" style={{ padding: 6, fontSize: 14 }} onClick={() => { setShowTools(!showTools); }}>
-              <Menu size={16} /> Mais
-            </button>
-          </div>
+        <div className="ring-wrap">
           <div className="chat-input">
+            <button
+              className={`favicon-btn ${smartMode ? 'on' : ''}`}
+              onClick={() => setSmartMode(!smartMode)}
+              title={smartMode
+                ? 'Modo inteligente ATIVO: detecta imagem, vídeo, código ou app pelo prompt'
+                : 'Modo inteligente: detecta imagem, vídeo, código ou app pelo prompt'}
+            >
+              <img src="/favicon.svg" alt="Dominic" />
+            </button>
             <textarea
               rows={2}
-              placeholder={`Conversar com ${brand.name}...`}
+              placeholder={smartMode
+                ? 'Ex: gere um vídeo de uma planta crescendo...'
+                : `Conversar com ${brand.name}...`}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKey}

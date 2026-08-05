@@ -53,6 +53,7 @@ export default function App() {
   const [backendError, setBackendError] = useState(false)
   const [conversations, setConversations] = useState(loadConversations)
   const [activeConvId, setActiveConvId] = useState(null)
+  const [toolRequest, setToolRequest] = useState(null)
   const toastTimer = useRef(null)
   const bgVideoRef = useRef(null)
 
@@ -135,6 +136,11 @@ export default function App() {
     setView('chat')
   }
 
+  const handleOpenTool = (tool) => {
+    setToolRequest(tool)
+    setView('chat')
+  }
+
   const handleSaveConfig = async (newConfig) => {
     try {
       await saveConfig(newConfig)
@@ -206,24 +212,13 @@ export default function App() {
         onNewConversation={handleNewConversation}
         onSelectConversation={handleSelectConversation}
         onDeleteConversation={handleDeleteConversation}
+        onOpenTool={handleOpenTool}
       />
 
       <div className="main">
         <div className="topbar">
           <div className="topbar-title">
             {VIEWS.find((v) => v.id === view)?.label || 'Dominic Generative'}
-          </div>
-
-          <div className="topnav-tabs">
-            {VIEWS.map(({ id, label }) => (
-              <button
-                key={id}
-                className={`topnav-tab ${view === id ? 'active' : ''}`}
-                onClick={() => setView(id)}
-              >
-                {label}
-              </button>
-            ))}
           </div>
 
           <div className="brand-chip">
@@ -243,6 +238,8 @@ export default function App() {
               conversation={activeConversation}
               onNewConversation={handleNewConversation}
               onUpdateConversation={handleUpdateConversation}
+              toolRequest={toolRequest}
+              onToolHandled={() => setToolRequest(null)}
             />
           )}
           {view === 'providers' && (

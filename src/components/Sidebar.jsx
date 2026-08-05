@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MessageSquare, KeyRound, Code2, Wrench, Plus, Trash2, ChevronRight } from 'lucide-react'
+import { MessageSquare, KeyRound, Code2, Wrench, Plus, Trash2, ChevronRight, Image as ImageIcon, Video, Sparkles } from 'lucide-react'
 
 const NAV = [
   { id: 'chat', label: 'Conversar', icon: MessageSquare },
@@ -8,7 +8,15 @@ const NAV = [
   { id: 'app', label: 'Criar App', icon: Wrench }
 ]
 
-export default function Sidebar({ brand, view, setView, providerCount, conversations, activeConvId, onNewConversation, onSelectConversation, onDeleteConversation }) {
+const TOOLS = [
+  { id: 'image', label: 'Imagem', icon: ImageIcon },
+  { id: 'video', label: 'Vídeo', icon: Video },
+  { id: 'code', label: 'Código', icon: Code2 },
+  { id: 'app', label: 'App', icon: Wrench },
+  { id: 'avatar', label: 'Avatar', icon: Sparkles }
+]
+
+export default function Sidebar({ brand, view, setView, providerCount, conversations, activeConvId, onNewConversation, onSelectConversation, onDeleteConversation, onOpenTool }) {
   const [expanded, setExpanded] = useState(false)
   const [hoverTimer, setHoverTimer] = useState(null)
 
@@ -28,7 +36,9 @@ export default function Sidebar({ brand, view, setView, providerCount, conversat
   return (
     <aside className={`sidebar ${expanded ? 'expanded' : 'collapsed'}`} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       <div className="sidebar-logo">
-        <div className="logo-badge">DG</div>
+        <div className="logo-badge">
+          <img src="/favicon.svg" alt="Dominic" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 12 }} />
+        </div>
         <div className="logo-text">
           <h1>{brand.name}</h1>
           <p>{brand.tagline}</p>
@@ -47,6 +57,23 @@ export default function Sidebar({ brand, view, setView, providerCount, conversat
           </button>
         ))}
       </nav>
+
+      <div className="sidebar-tools">
+        <div className="sidebar-section-title">
+          {expanded && <span>Ferramentas</span>}
+        </div>
+        {TOOLS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            className="tool-item"
+            onClick={() => onOpenTool(id)}
+            title={label}
+          >
+            <Icon size={17} />
+            {expanded && <span>{label}</span>}
+          </button>
+        ))}
+      </div>
 
       <div className="sidebar-conversations">
         <div className="sidebar-section-title">

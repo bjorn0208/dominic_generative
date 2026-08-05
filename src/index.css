@@ -792,6 +792,184 @@ textarea.input { resize: vertical; }
 
 .tool-panel .input { margin-bottom: 8px; }
 
+/* ---------- Anel animado estilo Xbox 360 (cores do vídeo de fundo) ---------- */
+.ring-wrap {
+  position: relative;
+  padding: 1.5px;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 0 26px rgba(255, 138, 61, 0.12);
+  transition: box-shadow var(--transition);
+}
+
+.ring-wrap::before {
+  content: '';
+  position: absolute;
+  top: -150%;
+  left: -150%;
+  width: 400%;
+  height: 400%;
+  background: conic-gradient(from 0deg,
+    #0b0d14 0deg,
+    #ff8a3d 45deg,
+    #ffd9a8 70deg,
+    #7d8aa5 95deg,
+    #0b0d14 140deg,
+    #ff8a3d 210deg,
+    #7d8aa5 260deg,
+    #0b0d14 320deg,
+    #0b0d14 360deg);
+  animation: ringSpin 5s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes ringSpin {
+  to { transform: rotate(360deg); }
+}
+
+.ring-wrap:focus-within::before {
+  filter: brightness(1.45) saturate(1.2);
+}
+
+.ring-wrap:focus-within {
+  box-shadow: 0 0 34px rgba(255, 138, 61, 0.3);
+}
+
+.ring-wrap .chat-input {
+  position: relative;
+  border: none;
+  background: rgba(16, 18, 28, 0.72);
+}
+
+/* ---------- Botão da logo (modo inteligente) ---------- */
+.favicon-btn {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  padding: 7px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  transition: all var(--transition-fast);
+}
+
+.favicon-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 50%;
+}
+
+.favicon-btn:hover {
+  border-color: var(--neon-cyan);
+  box-shadow: var(--shadow-glow-cyan);
+  transform: translateY(-1px);
+}
+
+.favicon-btn.on {
+  border-color: #ff8a3d;
+  background: rgba(255, 138, 61, 0.12);
+  box-shadow: 0 0 16px rgba(255, 138, 61, 0.55);
+  animation: faviconPulse 2s ease-in-out infinite;
+}
+
+@keyframes faviconPulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(255, 138, 61, 0.4); }
+  50% { box-shadow: 0 0 22px rgba(255, 138, 61, 0.75); }
+}
+
+/* ---------- Progresso de geração no chat ---------- */
+.gen-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 280px;
+}
+
+.gen-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-hi);
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+}
+
+.gen-track {
+  height: 10px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  overflow: hidden;
+}
+
+.gen-bar {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, #ff8a3d, #ffd9a8, #7d8aa5);
+  box-shadow: 0 0 12px rgba(255, 138, 61, 0.5);
+  transition: width 0.6s ease-out;
+}
+
+.gen-box.done .gen-label {
+  color: var(--neon-green);
+}
+
+.gen-box.err {
+  color: var(--neon-red);
+  font-weight: 600;
+}
+
+.gen-media {
+  max-width: 100%;
+  max-height: 420px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-panel);
+}
+
+.code-preview {
+  width: 100%;
+  height: 460px;
+  margin-top: 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: #fff;
+  box-shadow: var(--shadow-panel);
+}
+
+/* ---------- Ferramentas na sidebar ---------- */
+.sidebar-tools {
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+}
+
+.tool-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 13px;
+  border-radius: var(--radius-sm);
+  color: var(--text-mid);
+  font-size: 13.5px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.tool-item svg { flex-shrink: 0; }
+
+.tool-item:hover {
+  color: var(--text-hi);
+  background: rgba(255, 138, 61, 0.09);
+  border-color: rgba(255, 138, 61, 0.35);
+  transform: translateX(3px);
+}
+
 /* Input do chat */
 .chat-input-wrap {
   width: 100%;
