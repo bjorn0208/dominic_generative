@@ -26,3 +26,7 @@ test-*.cjs
 .DS_Store
 *.swp
 .aider*
+
+# Zips e arquivos temporários grandes
+all-files.zip
+ziGw6ncK
