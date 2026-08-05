@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="32" y2="32">
+      <stop offset="0%" stop-color="#0a0a0a"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" fill="url(#bg)"/>
+  
+  <g fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Head -->
+    <circle cx="16" cy="8" r="4"/>
+    <!-- Neck -->
+    <line x1="16" y1="12" x2="16" y2="14"/>
+    <!-- Shoulders -->
+    <line x1="8" y1="14" x2="24" y2="14"/>
+    <!-- Arms -->
+    <path d="M8 14 L4 22" stroke-width="1"/>
+    <path d="M24 14 L28 22" stroke-width="1"/>
+    <!-- Torso -->
+    <line x1="12" y1="14" x2="12" y2="24" stroke-width="1"/>
+    <line x1="16" y1="14" x2="16" y2="24" stroke-width="1"/>
+    <line x1="20" y1="14" x2="20" y2="24" stroke-width="1"/>
+    <!-- Hips -->
+    <line x1="11" y1="24" x2="21" y2="24"/>
+    <!-- Legs -->
+    <path d="M13 24 L13 29" stroke-width="1"/>
+    <path d="M19 24 L19 29" stroke-width="1"/>
+    <!-- Feet -->
+    <line x1="11" y1="29" x2="15" y2="29" stroke-width="1"/>
+    <line x1="17" y1="29" x2="21" y2="29" stroke-width="1"/>
+  </g>
+</svg>

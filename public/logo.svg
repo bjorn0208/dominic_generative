@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="128" y2="128">
+      <stop offset="0%" stop-color="#0a0a0a"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" fill="url(#bg)"/>
+  
+  <!-- Mannequin Figure - Thin, white, minimalist -->
+  <g fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Head -->
+    <circle cx="64" cy="28" r="16" fill="none" stroke="#ffffff" stroke-width="2.5"/>
+    
+    <!-- Neck -->
+    <line x1="64" y1="44" x2="64" y2="52" stroke="#ffffff" stroke-width="2.5"/>
+    
+    <!-- Shoulders -->
+    <line x1="38" y1="56" x2="90" y2="56" stroke="#ffffff" stroke-width="2.5"/>
+    
+    <!-- Arms - thin, relaxed at sides -->
+    <path d="M38 56 L28 90" stroke="#ffffff" stroke-width="2"/>
+    <path d="M90 56 L100 90" stroke="#ffffff" stroke-width="2"/>
+    
+    <!-- Torso - thin vertical lines -->
+    <line x1="48" y1="56" x2="48" y2="98" stroke="#ffffff" stroke-width="2"/>
+    <line x1="64" y1="56" x2="64" y2="98" stroke="#ffffff" stroke-width="2"/>
+    <line x1="80" y1="56" x2="80" y2="98" stroke="#ffffff" stroke-width="2"/>
+    
+    <!-- Hips -->
+    <line x1="44" y1="98" x2="84" y2="98" stroke="#ffffff" stroke-width="2.5"/>
+    
+    <!-- Legs - long and thin -->
+    <path d="M48 98 L48 120" stroke="#ffffff" stroke-width="2"/>
+    <path d="M80 98 L80 120" stroke="#ffffff" stroke-width="2"/>
+    
+    <!-- Feet -->
+    <line x1="44" y1="120" x2="52" y2="120" stroke="#ffffff" stroke-width="2"/>
+    <line x1="76" y1="120" x2="84" y2="120" stroke="#ffffff" stroke-width="2"/>
+  </g>
+  
+  <!-- Subtle glow accent -->
+  <circle cx="64" cy="28" r="20" fill="none" stroke="#ffffff" stroke-width="0.5" opacity="0.15"/>
+</svg>

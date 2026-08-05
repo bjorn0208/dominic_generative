@@ -1,0 +1,5 @@
+data/*.jsonl
+node_modules
+.vercel
+LTX-Video
+scripts

@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Vercel
+.vercel/
+*.vercel.app
+
+# Runtime data (contains config.json with possible API keys)
+data/
+*.log
+
+# Local databases
+db/
+
+# Local AI models (LTX-Video repo clone)
+LTX-Video/
+
+# Temporary test files
+test-*.js
+test-*.cjs
+
+# Editor / OS
+.DS_Store
+*.swp
+.aider*
