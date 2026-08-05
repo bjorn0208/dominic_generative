@@ -532,17 +532,17 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
       )}
 
       <div className="chat-input-wrap">
+        <button
+          className={`favicon-btn ${smartMode ? 'on' : ''}`}
+          onClick={() => setSmartMode(!smartMode)}
+          title={smartMode
+            ? 'Modo inteligente ATIVO: detecta imagem, vídeo, código ou app pelo prompt'
+            : 'Modo inteligente: detecta imagem, vídeo, código ou app pelo prompt'}
+        >
+          <img src="/favicon.svg" alt="Dominic" />
+        </button>
         <div className="ring-wrap">
           <div className={`chat-input ${smartMode ? 'smart' : ''}`}>
-            <button
-              className={`favicon-btn ${smartMode ? 'on' : ''}`}
-              onClick={() => setSmartMode(!smartMode)}
-              title={smartMode
-                ? 'Modo inteligente ATIVO: detecta imagem, vídeo, código ou app pelo prompt'
-                : 'Modo inteligente: detecta imagem, vídeo, código ou app pelo prompt'}
-            >
-              <img src="/favicon.svg" alt="Dominic" />
-            </button>
             <textarea
               rows={2}
               placeholder={smartMode
