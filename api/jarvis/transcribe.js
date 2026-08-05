@@ -13,9 +13,10 @@ export default async function handler(req, res) {
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido' })
 
-  let body = req.body
-  if (Buffer.isBuffer(body) && body.length === 0) body = undefined
-  if (!body) return res.status(400).json({ error: 'áudio vazio' })
+  const chunks = []
+  for await (const chunk of req) chunks.push(chunk)
+  const body = Buffer.concat(chunks)
+  if (body.length === 0) return res.status(400).json({ error: 'áudio vazio' })
 
   let apiKey = ''
   try {
