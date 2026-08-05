@@ -89,6 +89,11 @@ async def stt(request: Request) -> Response:
     return Response(content=json.dumps({"text": text}), media_type="application/json")
 
 
+@app.get("/api/transcribe")
+def transcribe_health() -> Response:
+    return Response(content=json.dumps({"status": "ok", "service": "Dominic Jarvis", "tts": True, "stt": True, "brain": False, "remote": False}), media_type="application/json")
+
+
 @app.post("/api/transcribe")
 async def transcribe(request: Request) -> Response:
     data = await request.body()

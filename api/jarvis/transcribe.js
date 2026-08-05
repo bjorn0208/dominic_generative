@@ -8,6 +8,9 @@ const GROQ_MODEL = 'whisper-large-v3-turbo'
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   if (req.method === 'OPTIONS') return res.status(204).end()
+  if (req.method === 'GET') {
+    return res.status(200).json({ status: 'ok', service: 'Dominic Jarvis', tts: true, stt: true, brain: false, remote: true })
+  }
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido' })
 
   let body = req.body

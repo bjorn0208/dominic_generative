@@ -67,7 +67,7 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
   useEffect(() => { convIdRef.current = conversation?.id || null }, [conversation?.id])
 
   useEffect(() => {
-    fetch('/api/jarvis/health')
+    fetch('/api/jarvis/transcribe')
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error('offline'))))
       .then((d) => setJarvisOnline(d.status === 'ok'))
       .catch(() => setJarvisOnline(false))
