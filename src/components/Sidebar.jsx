@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { MessageSquare, KeyRound, Code2, Wrench, Plus, Trash2, ChevronRight, Image as ImageIcon, Video, Sparkles } from 'lucide-react'
+import { MessageSquare, KeyRound, Code2, Wrench, Plus, Trash2, ChevronRight, Image as ImageIcon, Video, Sparkles, Mic } from 'lucide-react'
 
 const NAV = [
   { id: 'chat', label: 'Conversar', icon: MessageSquare },
+  { id: 'voice', label: 'Modo Voz', icon: Mic },
   { id: 'providers', label: 'Fornecedores', icon: KeyRound },
   { id: 'code', label: 'Programar', icon: Code2 },
   { id: 'app', label: 'Criar App', icon: Wrench }

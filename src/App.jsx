@@ -4,6 +4,7 @@ import ChatView from './components/ChatView.jsx'
 import ProvidersView from './components/ProvidersView.jsx'
 import CodeGenView from './components/CodeGenView.jsx'
 import AppBuilderView from './components/AppBuilderView.jsx'
+import VoicePanel from './components/VoicePanel.jsx'
 import Toast from './components/Toast.jsx'
 import { fetchConfig, saveConfig, fetchModels, fetchOllamaTags, testConnection } from './utils/api.js'
 import './topnav.css'
@@ -13,6 +14,7 @@ const STORAGE_KEY = 'dominic-conversations-v1'
 
 const VIEWS = [
   { id: 'chat', label: '💬 Conversar' },
+  { id: 'voice', label: '🎤 Modo Voz' },
   { id: 'providers', label: '🔑 Fornecedores' },
   { id: 'code', label: '👨‍💻 Programar' },
   { id: 'app', label: '🛠️ Criar App' }
@@ -54,6 +56,7 @@ export default function App() {
   const [conversations, setConversations] = useState(loadConversations)
   const [activeConvId, setActiveConvId] = useState(null)
   const [toolRequest, setToolRequest] = useState(null)
+  const [pendingVoiceMessage, setPendingVoiceMessage] = useState(null)
   const [smartMode, setSmartMode] = useState(false)
   const [orbFlying, setOrbFlying] = useState(false)
   const toastTimer = useRef(null)
@@ -140,6 +143,11 @@ export default function App() {
 
   const handleOpenTool = (tool) => {
     setToolRequest(tool)
+    setView('chat')
+  }
+
+  const handleOpenVoiceChat = (text) => {
+    setPendingVoiceMessage(text)
     setView('chat')
   }
 
@@ -259,7 +267,12 @@ export default function App() {
               toolRequest={toolRequest}
               onToolHandled={() => setToolRequest(null)}
               smartMode={smartMode}
+              voiceInput={pendingVoiceMessage}
+              onVoiceInputHandled={() => setPendingVoiceMessage(null)}
             />
+          )}
+          {view === 'voice' && (
+            <VoicePanel showToast={showToast} onOpenChat={handleOpenVoiceChat} />
           )}
           {view === 'providers' && (
             <ProvidersView

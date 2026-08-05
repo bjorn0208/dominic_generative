@@ -60,7 +60,7 @@ function progressHtml(label, pct) {
   return `<div class="gen-box"><div class="gen-label">${label}... ${Math.floor(pct)}%</div><div class="gen-track"><div class="gen-bar" style="width:${Math.floor(pct)}%"></div></div></div>`
 }
 
-export default function ChatView({ models, ollamaOnline, brand, showToast, conversation, onNewConversation, onUpdateConversation, toolRequest, onToolHandled, smartMode }) {
+export default function ChatView({ models, ollamaOnline, brand, showToast, conversation, onNewConversation, onUpdateConversation, toolRequest, onToolHandled, smartMode, voiceInput, onVoiceInputHandled }) {
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [showTools, setShowTools] = useState(false)
@@ -72,88 +72,138 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
   const bottomRef = useRef(null)
   const recognitionRef = useRef(null)
   const synthRef = useRef(null)
+  const voiceRef = useRef(null)
+  const voiceModeRef = useRef(false)
+  const busyRef = useRef(false)
+  const permissionRef = useRef(false)
 
-      useEffect(() => {
-        if (typeof window !== 'undefined') {
-          synthRef.current = window.speechSynthesis
-          if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-            recognitionRef.current = new SpeechRecognition()
-            recognitionRef.current.continuous = true
-            recognitionRef.current.interimResults = false
-            recognitionRef.current.lang = 'pt-BR'
-            
-            recognitionRef.current.onstart = () => setIsListening(true)
-            recognitionRef.current.onend = () => {
-              setIsListening(false)
-              if (voiceInitialized) {
-                setTimeout(() => recognitionRef.current?.start(), 1000)
-              }
-            }
-            recognitionRef.current.onerror = (e) => {
-              console.error('Speech recognition error:', e.error)
-              setIsListening(false)
-            }
-            recognitionRef.current.onresult = (event) => {
-              const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase().trim()
-              if (transcript.includes('ativar dominic') && !busy) {
-                if (!voiceMode) {
-                  setVoiceMode(true)
-                  setIsListening(false)
-                  if (recognitionRef.current) {
-                    recognitionRef.current.stop()
-                  }
-                  setTimeout(() => {
-                    if (synthRef.current) {
-                      const utterance = new SpeechSynthesisUtterance('Olá, meu nome é Dominic, o que tá pegando?')
-                      utterance.lang = 'pt-BR'
-                      synthRef.current.speak(utterance)
-                    }
-                  }, 300)
-                }
-              } else if (transcript.includes('desativar modo voz') && voiceMode && !busy) {
-                setVoiceMode(false)
-                setIsListening(false)
-                if (recognitionRef.current) {
-                  recognitionRef.current.stop()
-                }
-              }
-            }
-          }
-          setVoiceInitialized(true)
-        }
-      }, [])
+  useEffect(() => { voiceModeRef.current = voiceMode }, [voiceMode])
+  useEffect(() => { busyRef.current = busy }, [busy])
 
-      useEffect(() => {
-        if (voiceMode && !isListening && voiceInitialized && recognitionRef.current) {
-          recognitionRef.current.start()
-        } else if (!voiceMode && isListening) {
-          recognitionRef.current?.stop()
-        }
-      }, [voiceMode, voiceInitialized, isListening])
+  const speak = (text) => {
+    const synth = synthRef.current
+    if (!synth) return
+    synth.cancel()
+    const utterance = new SpeechSynthesisUtterance(text)
+    utterance.lang = 'pt-BR'
+    if (voiceRef.current) utterance.voice = voiceRef.current
+    utterance.rate = 1.05
+    utterance.pitch = 0.95
+    synth.speak(utterance)
+  }
 
-      // Detect when voice mode is activated from sidebar (mobile-friendly)
-      useEffect(() => {
-        const handleSidebarVoiceActivate = () => {
-          if (!voiceMode && !busy) {
-            setVoiceMode(true)
+  const requestMicPermission = async () => {
+    if (permissionRef.current) return true
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true })
+      permissionRef.current = true
+      return true
+    } catch {
+      showToast?.('Permissão de microfone negada — libere o mic no navegador', 'error')
+      return false
+    }
+  }
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      synthRef.current = window.speechSynthesis
+      const pickVoice = () => {
+        const voices = window.speechSynthesis?.getVoices() || []
+        voiceRef.current = voices.find((v) => v.lang === 'pt-BR' && /Google|Natural|Microsoft/i.test(v.name))
+          || voices.find((v) => v.lang?.toLowerCase().startsWith('pt'))
+          || voices[0] || null
+      }
+      pickVoice()
+      window.speechSynthesis?.addEventListener?.('voiceschanged', pickVoice)
+
+      if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+        const recognition = new SpeechRecognition()
+        recognition.continuous = true
+        recognition.interimResults = false
+        recognition.lang = 'pt-BR'
+
+        recognition.onstart = () => setIsListening(true)
+        recognition.onend = () => {
+          setIsListening(false)
+          if (voiceModeRef.current) {
             setTimeout(() => {
-              if (synthRef.current) {
-                const utterance = new SpeechSynthesisUtterance('Olá, meu nome é Dominic, o que tá pegando?')
-                utterance.lang = 'pt-BR'
-                synthRef.current.speak(utterance)
+              if (voiceModeRef.current) {
+                try { recognition.start() } catch { /* ignore */ }
               }
-            }, 300)
+            }, 1000)
           }
         }
-        
-        // Listen for custom event from sidebar orb click
-        window.addEventListener('activateDominic', handleSidebarVoiceActivate)
-        
-        return () => {
-          window.removeEventListener('activateDominic', handleSidebarVoiceActivate)
+        recognition.onerror = (e) => {
+          console.error('Speech recognition error:', e.error)
+          setIsListening(false)
+          if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+            permissionRef.current = false
+            setVoiceMode(false)
+          }
         }
-      }, [voiceMode, busy])
+        recognition.onresult = (event) => {
+          const results = event.results
+          const last = results[results.length - 1]
+          if (!last) return
+          const transcript = last[0].transcript.toLowerCase().trim()
+          if (transcript.includes('ativar dominic') && !busyRef.current) {
+            if (!voiceModeRef.current) {
+              setVoiceMode(true)
+              try { recognition.stop() } catch { /* ignore */ }
+              setTimeout(() => speak('Olá, meu nome é Dominic, o que tá pegando?'), 300)
+            }
+          } else if (transcript.includes('desativar modo voz') && voiceModeRef.current && !busyRef.current) {
+            setVoiceMode(false)
+            try { recognition.stop() } catch { /* ignore */ }
+          }
+        }
+        recognitionRef.current = recognition
+      }
+      setVoiceInitialized(true)
+    }
+    return () => {
+      try { recognitionRef.current?.stop() } catch { /* ignore */ }
+      try { synthRef.current?.cancel() } catch { /* ignore */ }
+    }
+  }, [showToast])
+
+  useEffect(() => {
+    if (voiceMode && !isListening && voiceInitialized && recognitionRef.current) {
+      requestMicPermission().then((ok) => {
+        if (ok && voiceModeRef.current) {
+          try { recognitionRef.current.start() } catch { /* ignore */ }
+        }
+      })
+    } else if (!voiceMode && isListening) {
+      try { recognitionRef.current?.stop() } catch { /* ignore */ }
+    }
+  }, [voiceMode, voiceInitialized, isListening])
+
+  // Detect when voice mode is activated from sidebar (mobile-friendly)
+  useEffect(() => {
+    const handleSidebarVoiceActivate = () => {
+      if (!voiceModeRef.current && !busyRef.current) {
+        setVoiceMode(true)
+        setTimeout(() => speak('Olá, meu nome é Dominic, o que tá pegando?'), 300)
+      }
+    }
+
+    // Listen for custom event from sidebar orb click
+    window.addEventListener('activateDominic', handleSidebarVoiceActivate)
+
+    return () => {
+      window.removeEventListener('activateDominic', handleSidebarVoiceActivate)
+    }
+  }, [])
+
+  // Receives text sent from the VoicePanel tab
+  useEffect(() => {
+    if (voiceInput) {
+      setInput(voiceInput)
+      onVoiceInputHandled?.()
+    }
+  }, [voiceInput, onVoiceInputHandled])
 
   const messages = conversation?.messages || []
   const providerId = conversation?.providerId || ''
@@ -627,15 +677,11 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
         <button
           className={`voice-btn ${voiceMode ? 'on' : ''}`}
           onClick={() => {
-            setVoiceMode(!voiceMode)
-            if (!voiceMode) {
-              setTimeout(() => {
-                if (synthRef.current) {
-                  const utterance = new SpeechSynthesisUtterance('Olá, meu nome é Dominic, o que tá pegando?')
-                  utterance.lang = 'pt-BR'
-                  synthRef.current.speak(utterance)
-                }
-              }, 300)
+            const next = !voiceMode
+            setVoiceMode(next)
+            if (next) {
+              requestMicPermission()
+              setTimeout(() => speak('Olá, meu nome é Dominic, o que tá pegando?'), 300)
             }
           }}
           title={voiceMode ? 'Desativar modo voz' : 'Ativar modo voz'}
