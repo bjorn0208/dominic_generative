@@ -933,7 +933,13 @@ textarea.input { resize: vertical; }
 
 /* Voo de cometa: sai com rastro, dá um looping na tela e pousa no lugar */
 .dominic-orb.flying {
-  animation: cometFlight 2.6s cubic-bezier(0.45, 0, 0.3, 1) forwards;
+  animation: cometFlight 3s forwards;
+  will-change: transform, filter;
+}
+
+/* Ícone permanece em pé durante o voo (contra-rotação sincronizada) */
+.dominic-orb.flying img {
+  animation: cometIcon 3s forwards;
 }
 
 .dominic-orb .orb-tail {
@@ -941,38 +947,120 @@ textarea.input { resize: vertical; }
   position: absolute;
   top: 50%;
   right: 100%;
-  width: 170px;
-  height: 5px;
+  width: 210px;
+  height: 7px;
   transform: translateY(-50%);
-  background: linear-gradient(90deg,
-    transparent 0%,
-    rgba(255, 170, 70, 0.5) 35%,
-    rgba(255, 215, 130, 0.9) 75%,
-    rgba(255, 245, 210, 1) 100%);
+  background:
+    linear-gradient(90deg, transparent 32%, rgba(255, 235, 190, 0.95) 78%, #ffffff 100%) no-repeat center / 100% 1.5px,
+    linear-gradient(90deg, transparent 12%, rgba(255, 160, 70, 0.5) 70%, transparent 100%) no-repeat 0 3px / 100% 1px,
+    linear-gradient(90deg, transparent 40%, rgba(255, 110, 35, 0.4) 85%, transparent 100%) no-repeat 0 -3px / 100% 1px;
   border-radius: 999px;
-  filter: blur(2px);
+  filter: blur(1px);
   pointer-events: none;
 }
 
 .dominic-orb.flying .orb-tail {
   display: block;
-  animation: tailFlicker 0.22s ease-in-out infinite;
+  animation: tailFlicker 0.2s ease-in-out infinite;
 }
 
 @keyframes tailFlicker {
-  0%, 100% { opacity: 0.55; transform: translateY(-50%) scaleX(1); }
-  50% { opacity: 1; transform: translateY(-50%) scaleX(1.08); }
+  0%, 100% { opacity: 0.7; transform: translateY(-50%) scaleX(1); }
+  50% { opacity: 1; transform: translateY(-50%) scaleX(1.06); }
 }
 
 @keyframes cometFlight {
-  0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-  10% { transform: translate(14vw, -9vh) scale(1.1) rotate(-6deg); }
-  26% { transform: translate(36vw, -24vh) scale(1.2) rotate(4deg); }
-  42% { transform: translate(56vw, -36vh) scale(1.25) rotate(-4deg); }
-  58% { transform: translate(72vw, -22vh) scale(1.22) rotate(8deg); }
-  72% { transform: translate(55vw, -6vh) scale(1.16) rotate(-8deg); }
-  86% { transform: translate(28vw, 3vh) scale(1.06) rotate(4deg); }
-  100% { transform: translate(0, 0) scale(1) rotate(0deg); }
+  0% {
+    transform: translate(0, 0) rotate(-30deg) scale(1);
+    filter: blur(0);
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+  10% {
+    transform: translate(16vw, -9vh) rotate(-55deg) scale(1.06);
+    filter: blur(0);
+    animation-timing-function: cubic-bezier(0.45, 0.05, 0.55, 0.95);
+  }
+  22% {
+    transform: translate(34vw, -20vh) rotate(-95deg) scale(1.14);
+    filter: blur(0.8px);
+    animation-timing-function: cubic-bezier(0.45, 0.05, 0.55, 0.95);
+  }
+  33% {
+    transform: translate(47vw, -26vh) rotate(-135deg) scale(1.2);
+    filter: blur(0.8px);
+    animation-timing-function: cubic-bezier(0.5, 0.1, 0.5, 0.9);
+  }
+  44% {
+    transform: translate(54vw, -22vh) rotate(-180deg) scale(1.18);
+    filter: blur(0.8px);
+    animation-timing-function: cubic-bezier(0.5, 0.1, 0.5, 0.9);
+  }
+  55% {
+    transform: translate(53vw, -11vh) rotate(-225deg) scale(1.14);
+    filter: blur(0.8px);
+    animation-timing-function: cubic-bezier(0.45, 0.05, 0.55, 0.95);
+  }
+  66% {
+    transform: translate(44vw, -2vh) rotate(-270deg) scale(1.08);
+    filter: blur(0.5px);
+    animation-timing-function: cubic-bezier(0.45, 0.05, 0.55, 0.95);
+  }
+  78% {
+    transform: translate(28vw, 2vh) rotate(-310deg) scale(1.03);
+    filter: blur(0);
+    animation-timing-function: cubic-bezier(0.3, 0, 0.55, 1);
+  }
+  90% {
+    transform: translate(12vw, 1vh) rotate(-345deg) scale(1.01);
+    filter: blur(0);
+    animation-timing-function: cubic-bezier(0.35, 0, 0.6, 0.35);
+  }
+  100% {
+    transform: translate(0, 0) rotate(-390deg) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes cometIcon {
+  0% {
+    transform: rotate(30deg);
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+  10% {
+    transform: rotate(55deg);
+    animation-timing-function: cubic-bezier(0.45, 0.05, 0.55, 0.95);
+  }
+  22% {
+    transform: rotate(95deg);
+    animation-timing-function: cubic-bezier(0.45, 0.05, 0.55, 0.95);
+  }
+  33% {
+    transform: rotate(135deg);
+    animation-timing-function: cubic-bezier(0.5, 0.1, 0.5, 0.9);
+  }
+  44% {
+    transform: rotate(180deg);
+    animation-timing-function: cubic-bezier(0.5, 0.1, 0.5, 0.9);
+  }
+  55% {
+    transform: rotate(225deg);
+    animation-timing-function: cubic-bezier(0.45, 0.05, 0.55, 0.95);
+  }
+  66% {
+    transform: rotate(270deg);
+    animation-timing-function: cubic-bezier(0.45, 0.05, 0.55, 0.95);
+  }
+  78% {
+    transform: rotate(310deg);
+    animation-timing-function: cubic-bezier(0.3, 0, 0.55, 1);
+  }
+  90% {
+    transform: rotate(345deg);
+    animation-timing-function: cubic-bezier(0.35, 0, 0.6, 0.35);
+  }
+  100% {
+    transform: rotate(390deg);
+  }
 }
 
 @keyframes ssjGlow {
