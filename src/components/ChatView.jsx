@@ -281,7 +281,20 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
       const data = await sendChat({ providerId, model, messages: payload })
       addMessage(data.reply, 'assistant', `via ${data.provider?.name} · ${data.model}`)
     } catch (err) {
-      addMessage(`⚠️ ${err.message}`, 'assistant', null, true)
+      const groq = models.find((m) => m.providerId === 'groq')
+      if (providerId !== 'groq' && groq) {
+        showToast?.(`⚠️ ${providerId} sem chave — trocando para Groq`, 'error')
+        onUpdateConversation(conversation.id, { providerId: 'groq', model: groq.model })
+        try {
+          const data = await sendChat({ providerId: 'groq', model: groq.model, messages: payload })
+          addMessage(data.reply, 'assistant', `via Groq (fallback) · ${data.model}`)
+          return
+        } catch (err2) {
+          addMessage(`⚠️ ${err2.message}`, 'assistant', null, true)
+        }
+      } else {
+        addMessage(`⚠️ ${err.message}`, 'assistant', null, true)
+      }
     } finally {
       setBusy(false)
     }

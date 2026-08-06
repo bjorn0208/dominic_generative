@@ -12,5 +12,6 @@ export default async function handler(req, res) {
       models.push({ providerId: p.id, providerName: p.name, model: m })
     }
   }
+  models.sort((a, b) => (a.providerId === 'groq' ? -1 : 0) - (b.providerId === 'groq' ? -1 : 0))
   return res.status(200).json(models)
 }

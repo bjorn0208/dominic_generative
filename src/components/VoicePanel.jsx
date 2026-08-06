@@ -242,7 +242,7 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
     })
 
     const fallbackModel = { providerId: 'groq', model: null }
-    const provider = modelsRef.current[0] || fallbackModel
+    const provider = modelsRef.current.find((m) => m.providerId === 'groq') || modelsRef.current[0] || fallbackModel
     const payload = [
       { role: 'system', content: systemPrompt },
       ...next.slice(-16).map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content }))
