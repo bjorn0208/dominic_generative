@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Sparkles, RefreshCw, Download, ExternalLink, Loader2, Copy, Check, Wrench } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Sparkles, RefreshCw, Download, ExternalLink, Loader2, Copy, Check, Wrench, Send, Plus, Bot } from 'lucide-react'
 import { generateApp, modifyApp, suggestAppImprovements, generateAppName } from '../utils/api.js'
 
 export default function AppBuilderView({ showToast }) {
@@ -9,11 +9,20 @@ export default function AppBuilderView({ showToast }) {
   const [summary, setSummary] = useState([])
   const [suggestions, setSuggestions] = useState([])
   const [modifyInput, setModifyInput] = useState('')
+  const [chat, setChat] = useState([])
   const [loading, setLoading] = useState(false)
   const [loadingModify, setLoadingModify] = useState(false)
   const [error, setError] = useState(null)
   const [previewKey, setPreviewKey] = useState(0)
   const [copied, setCopied] = useState(false)
+  const messagesEndRef = useRef(null)
+  const inputRef = useRef(null)
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [chat, loadingModify])
+
+  const pushChat = (msg) => setChat((prev) => [...prev, msg])
 
   const handleCreate = async () => {
     if (!prompt.trim()) {
@@ -27,10 +36,12 @@ export default function AppBuilderView({ showToast }) {
     setSummary([])
     setSuggestions([])
     setPreviewKey((k) => k + 1)
+    pushChat({ role: 'user', content: prompt.trim() })
+    setPrompt('')
     try {
       const data = await generateApp({ prompt })
       setCode(data.code)
-      setLoading(false)
+      pushChat({ role: 'assistant', kind: 'created', content: 'App criado! Peça qualquer mudança pelo chat que eu edito na hora — o preview atualiza ao lado.' })
       try {
         const [nameRes, suggestRes] = await Promise.all([
           generateAppName({ prompt }),
@@ -42,8 +53,10 @@ export default function AppBuilderView({ showToast }) {
         /* nome/sugestões são opcionais */
       }
     } catch (err) {
-      setLoading(false)
       setError(err.message)
+      pushChat({ role: 'assistant', kind: 'error', content: `⚠️ ${err.message}` })
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -59,18 +72,33 @@ export default function AppBuilderView({ showToast }) {
     }
     setLoadingModify(true)
     setError(null)
+    pushChat({ role: 'user', content: text.trim() })
+    setModifyInput('')
     try {
       const data = await modifyApp({ code, prompt: text })
       setCode(data.code)
-      setSummary(Array.isArray(data.summary) ? data.summary : String(data.summary).split('\n').filter(Boolean))
+      const items = Array.isArray(data.summary) ? data.summary : String(data.summary).split('\n').filter(Boolean)
+      setSummary(items)
       setPreviewKey((k) => k + 1)
-      setModifyInput('')
       setSuggestions([])
+      pushChat({ role: 'assistant', kind: 'modified', content: items.length ? `Feito! ${items.map((s) => s.replace(/^[-•]\s*/, '')).join(' · ')}` : 'Feito! Alterações aplicadas no preview.' })
     } catch (err) {
       setError(err.message)
+      pushChat({ role: 'assistant', kind: 'error', content: `⚠️ ${err.message}` })
     } finally {
       setLoadingModify(false)
     }
+  }
+
+  const handleNew = () => {
+    setCode('')
+    setChat([])
+    setAppName('')
+    setSummary([])
+    setSuggestions([])
+    setError(null)
+    setPrompt('')
+    setModifyInput('')
   }
 
   const handleDownload = () => {
@@ -88,132 +116,172 @@ export default function AppBuilderView({ showToast }) {
     })
   }
 
+  const handleOpenOutside = () => {
+    const blob = new Blob([code], { type: 'text/html;charset=utf-8' })
+    window.open(URL.createObjectURL(blob), '_blank')
+  }
+
+  const handleInputKey = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleModify()
+    }
+  }
+
+  const handlePromptKey = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleCreate()
+    }
+  }
+
   return (
     <div>
-      <div className="card" style={{ marginBottom: 24 }}>
-        <div className="card-title">🛠️ Criar App (estilo Lovable)</div>
-        <p style={{ color: '#666', fontSize: 14, margin: '6px 0 16px' }}>
-          Descreva um app em linguagem natural e o Dominic gera um app completo em{' '}
-          <b>HTML + React + Tailwind</b> com preview ao vivo. Depois é só pedir mudanças
-          e ele reconstrói na hora — exatamente como o Lovable.
-        </p>
-        <p style={{ color: '#888', fontSize: 13, margin: '4px 0 14px' }}>
-          ⚠️ Use a IA <b>Google Gemini</b>. Se ainda não configurou a chave, adicione na
-          aba <b>🔑 Fornecedores</b> (provider Google).
-        </p>
-
-        <div className="field">
-          <label>Descreva seu app</label>
-          <textarea
-            className="input"
-            rows={3}
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Ex: um dashboard financeiro com gráficos, lista de transações e saldo atual, tema escuro premium..."
-          />
-        </div>
-
-        <button className="btn green" onClick={handleCreate} disabled={loading}>
-          <Sparkles size={16} />
-          {loading ? 'Criando app...' : '✨ Criar app'}
-        </button>
-
-        {error && (
-          <div style={{ marginTop: 16, color: '#c00', background: '#fff0f0', padding: 12, borderRadius: 8, fontSize: 14 }}>
-            ⚠️ {error}
-          </div>
-        )}
-      </div>
-
-      {loading && (
+      {!code && (
         <div className="card" style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#555', fontSize: 14, padding: '20px 0' }}>
-            <Loader2 size={18} className="spin" style={{ color: 'var(--green)' }} />
-            Gerando o app (pode levar de 30s a 2 min)...
-          </div>
-        </div>
-      )}
+          <div className="card-title">🛠️ Criar App (estilo Lovable)</div>
+          <p style={{ color: '#666', fontSize: 14, margin: '6px 0 16px' }}>
+            Descreva um app em linguagem natural e o Dominic gera um app completo em{' '}
+            <b>HTML + React + Tailwind</b> com preview ao vivo. Depois é só pedir mudanças
+            no chat — exatamente como o Lovable.
+          </p>
+          <p style={{ color: '#888', fontSize: 13, margin: '4px 0 14px' }}>
+            ⚠️ Use a IA <b>Google Gemini</b>. Se ainda não configurou a chave, adicione na
+            aba <b>🔑 Fornecedores</b> (provider Google).
+          </p>
 
-      {code && (
-        <div className="card" style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <h3 style={{ margin: 0 }}>{appName || 'Meu App'}</h3>
-              <span className="badge" style={{ background: 'var(--yellow)', color: '#000' }}>prévia</span>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn ghost" onClick={handleCopy}>
-                {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Copiado!' : 'Copiar código'}
-              </button>
-              <button className="btn ghost" onClick={handleDownload}>
-                <Download size={14} /> Baixar .html
-              </button>
-              <button className="btn ghost" onClick={() => setPreviewKey((k) => k + 1)}>
-                <RefreshCw size={14} /> Recarregar preview
-              </button>
-              <a className="btn ghost" onClick={handleDownload}>
-                <ExternalLink size={14} /> Abrir fora
-              </a>
-            </div>
-          </div>
-
-          <iframe
-            key={previewKey}
-            srcDoc={code}
-            sandbox="allow-scripts"
-            title="Preview do app"
-            style={{ width: '100%', height: 520, border: '1px solid #ddd', borderRadius: 10, background: '#fff' }}
-          />
-        </div>
-      )}
-
-      {code && (
-        <div className="card" style={{ marginBottom: 24 }}>
-          <div className="card-title">✏️ Modificar app</div>
           <div className="field">
-            <label>O que você quer mudar?</label>
+            <label>Descreva seu app</label>
             <textarea
               className="input"
-              rows={2}
-              value={modifyInput}
-              onChange={(e) => setModifyInput(e.target.value)}
-              placeholder="Ex: adicione um botão de exportar CSV e deixe o design mais moderno..."
+              rows={3}
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              onKeyDown={handlePromptKey}
+              placeholder="Ex: um dashboard financeiro com gráficos, lista de transações e saldo atual, tema escuro premium..."
             />
           </div>
-          <button className="btn" onClick={handleModify} disabled={loadingModify}>
-            {loadingModify ? <Loader2 size={16} className="spin" /> : <Wrench size={16} />}
-            {loadingModify ? 'Aplicando...' : 'Aplicar mudanças'}
+
+          <button className="btn green" onClick={handleCreate} disabled={loading}>
+            <Sparkles size={16} />
+            {loading ? 'Criando app...' : '✨ Criar app'}
           </button>
 
-          {summary.length > 0 && (
-            <div style={{ marginTop: 14, background: '#f6f6ff', border: '1px solid #e0e0ff', borderRadius: 8, padding: 12 }}>
-              <div style={{ fontSize: 13, color: '#666', marginBottom: 6, fontWeight: 600 }}>✅ Resumo das mudanças</div>
-              <ul style={{ margin: 0, paddingLeft: 18, color: '#555', fontSize: 13.5, lineHeight: 1.7 }}>
-                {summary.map((s, i) => (
-                  <li key={i}>{s.replace(/^[-•]\s*/, '')}</li>
-                ))}
-              </ul>
+          {loading && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#555', fontSize: 14, padding: '18px 0 4px' }}>
+              <Loader2 size={18} className="spin" style={{ color: 'var(--green)' }} />
+              Gerando o app (pode levar de 30s a 2 min)...
             </div>
           )}
 
-          {suggestions.length > 0 && (
-            <div style={{ marginTop: 16 }}>
-              <div style={{ fontSize: 13, color: '#666', marginBottom: 8, fontWeight: 600 }}>💡 Sugestões para melhorar</div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {error && (
+            <div style={{ marginTop: 16, color: '#c00', background: '#fff0f0', padding: 12, borderRadius: 8, fontSize: 14 }}>
+              ⚠️ {error}
+            </div>
+          )}
+        </div>
+      )}
+
+      {code && (
+        <div className="appbuilder-editor">
+          <div className="appbuilder-chat">
+            <div className="appbuilder-chat-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                <Bot size={17} style={{ color: 'var(--green)', flexShrink: 0 }} />
+                <h3 style={{ margin: 0, fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {appName || 'Meu App'}
+                </h3>
+              </div>
+              <button className="btn ghost" onClick={handleNew} style={{ fontSize: 12.5, padding: '6px 10px' }}>
+                <Plus size={13} /> Novo app
+              </button>
+            </div>
+
+            <div className="appbuilder-messages">
+              {chat.map((m, i) => (
+                <div key={i} className={`appbuilder-msg ${m.role} ${m.kind === 'error' ? 'error' : ''}`}>
+                  {m.role === 'assistant' && m.kind !== 'error' && (
+                    <div style={{ fontSize: 11.5, color: 'var(--green)', fontWeight: 700, marginBottom: 3 }}>
+                      ✓ {m.kind === 'created' ? 'App criado' : 'Mudanças aplicadas'}
+                    </div>
+                  )}
+                  {m.content}
+                </div>
+              ))}
+              {loadingModify && (
+                <div className="appbuilder-msg assistant" style={{ color: '#888' }}>
+                  <Loader2 size={14} className="spin" style={{ marginRight: 6, verticalAlign: '-2px' }} />
+                  Aplicando mudanças...
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {suggestions.length > 0 && (
+              <div className="appbuilder-suggestions">
                 {suggestions.map((s, i) => (
                   <button
                     key={i}
                     className="btn ghost"
-                    style={{ fontSize: 12.5, padding: '7px 12px' }}
+                    style={{ fontSize: 12, padding: '6px 10px' }}
                     onClick={() => handleModify(s)}
                     disabled={loadingModify}
                   >
-                    <Sparkles size={13} /> {s}
+                    <Sparkles size={12} /> {s}
                   </button>
                 ))}
               </div>
+            )}
+
+            <div className="appbuilder-input">
+              <textarea
+                ref={inputRef}
+                value={modifyInput}
+                onChange={(e) => setModifyInput(e.target.value)}
+                onKeyDown={handleInputKey}
+                placeholder="Peça uma mudança... (Enter envia)"
+                rows={1}
+              />
+              <button className="btn green" onClick={() => handleModify()} disabled={loadingModify} title="Enviar">
+                {loadingModify ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
+              </button>
             </div>
-          )}
+          </div>
+
+          <div className="appbuilder-preview">
+            <div className="appbuilder-preview-toolbar">
+              <button className="btn ghost" onClick={handleCopy} style={{ fontSize: 12, padding: '6px 10px' }}>
+                {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? 'Copiado!' : 'Copiar'}
+              </button>
+              <button className="btn ghost" onClick={handleDownload} style={{ fontSize: 12, padding: '6px 10px' }}>
+                <Download size={13} /> Baixar .html
+              </button>
+              <button className="btn ghost" onClick={handleOpenOutside} style={{ fontSize: 12, padding: '6px 10px' }}>
+                <ExternalLink size={13} /> Abrir fora
+              </button>
+              <button className="btn ghost" onClick={() => setPreviewKey((k) => k + 1)} style={{ fontSize: 12, padding: '6px 10px' }}>
+                <RefreshCw size={13} /> Recarregar
+              </button>
+            </div>
+            <iframe
+              key={previewKey}
+              srcDoc={code}
+              sandbox="allow-scripts"
+              title="Preview do app"
+              className="appbuilder-iframe"
+            />
+          </div>
+        </div>
+      )}
+
+      {code && summary.length > 0 && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <div className="card-title">📋 Últimas mudanças</div>
+          <ul style={{ margin: 0, paddingLeft: 18, color: '#555', fontSize: 13.5, lineHeight: 1.7 }}>
+            {summary.map((s, i) => (
+              <li key={i}>{s.replace(/^[-•]\s*/, '')}</li>
+            ))}
+          </ul>
         </div>
       )}
     </div>
