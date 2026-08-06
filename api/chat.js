@@ -84,6 +84,38 @@ export default async function handler(req, res) {
       usage: usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
     })
   } catch (err) {
+    // Rotação de chave: se a chave principal falhou por cota/limite, tenta a reserva
+    if (!req.body.apiKey && provider.apiKeyBackup && /(401|402|429)/.test(err.message)) {
+      try {
+        const { reply, usage } = await chatWithProvider(provider, selectedModel, provider.apiKeyBackup, messagesToSend)
+        if (process.env.DATABASE_URL) {
+          try {
+            await query(
+              `INSERT INTO usage_logs (provider_id, model, prompt_tokens, completion_tokens, total_tokens)
+               VALUES ($1,$2,$3,$4,$5)`,
+              [
+                provider.id,
+                selectedModel,
+                usage?.prompt_tokens ?? 0,
+                usage?.completion_tokens ?? 0,
+                usage?.total_tokens ?? 0
+              ]
+            )
+          } catch (dbErr) {
+            console.error('Falha ao registrar uso no banco:', dbErr.message)
+          }
+        }
+        return res.status(200).json({
+          reply,
+          provider: { id: provider.id, name: provider.name },
+          model: selectedModel,
+          servedBy: 'Dominic Generative (chave reserva)',
+          usage: usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
+        })
+      } catch (backupErr) {
+        return res.status(502).json({ error: `Falha ao contactar ${provider.name}: ${backupErr.message}` })
+      }
+    }
     return res.status(502).json({ error: `Falha ao contactar ${provider.name}: ${err.message}` })
   }
 }

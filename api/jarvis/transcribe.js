@@ -19,31 +19,42 @@ export default async function handler(req, res) {
   if (body.length === 0) return res.status(400).json({ error: 'áudio vazio' })
 
   let apiKey = ''
+  let apiKeyBackup = ''
   try {
     const cfg = await loadConfig()
-    apiKey = cfg.providers.find((p) => p.id === 'groq')?.apiKey || ''
+    const groq = cfg.providers.find((p) => p.id === 'groq')
+    apiKey = groq?.apiKey || ''
+    apiKeyBackup = groq?.apiKeyBackup || ''
   } catch { /* ignore */ }
   if (!apiKey) return res.status(500).json({ error: 'API_KEY_GROQ não configurada' })
 
   const mime = req.headers['content-type'] || 'audio/webm'
   const ext = mime.includes('mp4') ? 'm4a' : mime.includes('ogg') ? 'ogg' : mime.includes('wav') ? 'wav' : 'webm'
 
-  try {
+  const callWhisper = async (key) => {
     const form = new FormData()
     form.append('model', GROQ_MODEL)
     form.append('language', 'pt')
     form.append('file', new Blob([body], { type: mime }), `audio.${ext}`)
-
     const upstream = await fetch(GROQ_URL, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}` },
+      headers: { Authorization: `Bearer ${key}` },
       body: form
     })
     const data = await upstream.json()
-    if (!upstream.ok) {
-      return res.status(502).json({ error: data.error?.message || 'Falha no Whisper' })
+    if (!upstream.ok) throw new Error(`${upstream.status} ${data.error?.message || 'Falha no Whisper'}`)
+    return data.text || ''
+  }
+
+  try {
+    let text
+    try {
+      text = await callWhisper(apiKey)
+    } catch (err) {
+      if (!apiKeyBackup || !/(401|402|429)/.test(err.message)) throw err
+      text = await callWhisper(apiKeyBackup)
     }
-    res.status(200).json({ text: data.text || '' })
+    res.status(200).json({ text })
   } catch (err) {
     res.status(502).json({ error: err.message })
   }
