@@ -498,6 +498,31 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
 
   const clearTranscripts = () => setTranscripts([])
 
+  // Push-to-talk por teclado: segurar ESPAÇO grava, soltar envia
+  const pushToTalkRef = useRef()
+  pushToTalkRef.current = { startRecording, stopRecording }
+
+  useEffect(() => {
+    const isTyping = (t) => t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
+    const onKeyDown = (e) => {
+      if (e.code !== 'Space' || isTyping(e.target)) return
+      if (e.repeat || e.ctrlKey || e.altKey || e.metaKey) return
+      e.preventDefault()
+      pushToTalkRef.current?.startRecording()
+    }
+    const onKeyUp = (e) => {
+      if (e.code !== 'Space' || isTyping(e.target)) return
+      e.preventDefault()
+      pushToTalkRef.current?.stopRecording()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+    }
+  }, [])
+
   const sendToChat = (text) => {
     onOpenChat?.(text)
   }
@@ -557,8 +582,8 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
           {recording
             ? 'Gravando... solte para enviar'
             : jarvisOnline
-              ? 'Segure o botão verde para falar, ou use o microfone e diga "Acorde".'
-              : 'Ative o microfone e diga "Acorde", ou segure o botão verde para falar.'}
+              ? 'Segure a tecla ESPAÇO (ou o botão verde) para falar, ou use o microfone e diga "Acorde".'
+              : 'Ative o microfone e diga "Acorde", ou segure a tecla ESPAÇO (ou o botão verde) para falar.'}
           {jarvisOnline && (
             <span className="jarvis-chip">✓ Voz neural ativa</span>
           )}
