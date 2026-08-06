@@ -25,6 +25,44 @@ function pickListener() {
   return SR ? new SR() : null
 }
 
+function downsample(samples, fromRate, toRate) {
+  if (fromRate === toRate) return samples
+  const ratio = fromRate / toRate
+  const out = new Float32Array(Math.ceil(samples.length / ratio))
+  for (let i = 0; i < out.length; i++) {
+    out[i] = samples[Math.min(samples.length - 1, Math.floor(i * ratio))]
+  }
+  return out
+}
+
+function encodeWav(samples, sampleRate) {
+  const buffer = new ArrayBuffer(44 + samples.length * 2)
+  const view = new DataView(buffer)
+  const writeStr = (offset, str) => {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i))
+  }
+  writeStr(0, 'RIFF')
+  view.setUint32(4, 36 + samples.length * 2, true)
+  writeStr(8, 'WAVE')
+  writeStr(12, 'fmt ')
+  view.setUint32(16, 16, true)
+  view.setUint16(20, 1, true)
+  view.setUint16(22, 1, true)
+  view.setUint32(24, sampleRate, true)
+  view.setUint32(28, sampleRate * 2, true)
+  view.setUint16(32, 2, true)
+  view.setUint16(34, 16, true)
+  writeStr(36, 'data')
+  view.setUint32(40, samples.length * 2, true)
+  let offset = 44
+  for (let i = 0; i < samples.length; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]))
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true)
+    offset += 2
+  }
+  return new Blob([buffer], { type: 'audio/wav' })
+}
+
 export default function VoicePanel({ models, conversation, onNewConversation, onUpdateConversation, showToast, onOpenChat }) {
   const [listening, setListening] = useState(false)
   const [speaking, setSpeaking] = useState(false)
@@ -39,7 +77,9 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
   const synthRef = useRef(null)
   const voiceRef = useRef(null)
   const audioRef = useRef(null)
-  const mediaRecorderRef = useRef(null)
+  const audioContextRef = useRef(null)
+  const audioStreamRef = useRef(null)
+  const audioProcessorRef = useRef(null)
   const recordingChunksRef = useRef([])
   const recordingRef = useRef(false)
   const listeningRef = useRef(false)
@@ -328,22 +368,22 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
     if (recordingRef.current) return
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
-      const recorder = new MediaRecorder(stream, { mimeType: mime })
+      const ctx = new (window.AudioContext || window.webkitAudioContext)()
+      if (ctx.state === 'suspended') await ctx.resume()
+      const source = ctx.createMediaStreamSource(stream)
+      const processor = ctx.createScriptProcessor(4096, 1, 1)
+      const silence = ctx.createGain()
+      silence.gain.value = 0
+      processor.onaudioprocess = (e) => {
+        recordingChunksRef.current.push(new Float32Array(e.inputBuffer.getChannelData(0)))
+      }
+      source.connect(processor)
+      processor.connect(silence)
+      silence.connect(ctx.destination)
+      audioContextRef.current = ctx
+      audioStreamRef.current = stream
+      audioProcessorRef.current = processor
       recordingChunksRef.current = []
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) recordingChunksRef.current.push(e.data)
-      }
-      recorder.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop())
-        const blob = new Blob(recordingChunksRef.current, { type: mime })
-        const ext = mime.includes('mp4') ? 'm4a' : 'webm'
-        await transcribeBlob(blob, ext)
-        recordingRef.current = false
-        setRecording(false)
-      }
-      recorder.start()
-      mediaRecorderRef.current = recorder
       recordingRef.current = true
       setRecording(true)
     } catch {
@@ -352,10 +392,37 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
   }
 
   const stopRecording = () => {
-    try { mediaRecorderRef.current?.stop() } catch { /* ignore */ }
+    const processor = audioProcessorRef.current
+    if (!processor) return
+    audioProcessorRef.current = null
+    try { processor.disconnect() } catch { /* ignore */ }
+    try { audioStreamRef.current?.getTracks().forEach((t) => t.stop()) } catch { /* ignore */ }
+    const ctx = audioContextRef.current
+    audioContextRef.current = null
+    const floats = recordingChunksRef.current
+    recordingChunksRef.current = []
+    const total = floats.reduce((n, c) => n + c.length, 0)
+    recordingRef.current = false
+    setRecording(false)
+    if (total < 2400) {
+      try { ctx?.close() } catch { /* ignore */ }
+      showToast?.('A gravação ficou muito curta. Fale um pouco mais.', 'error')
+      return
+    }
+    const samples = new Float32Array(total)
+    let offset = 0
+    for (const c of floats) {
+      samples.set(c, offset)
+      offset += c.length
+    }
+    const sampleRate = 16000
+    const ctxRate = ctx?.sampleRate || 48000
+    const blob = encodeWav(downsample(samples, ctxRate, sampleRate), sampleRate)
+    try { ctx?.close() } catch { /* ignore */ }
+    transcribeBlob(blob)
   }
 
-  const transcribeBlob = async (blob, ext) => {
+  const transcribeBlob = async (blob) => {
     setLastError(null)
     try {
       const r = await fetch('/api/jarvis/transcribe', { method: 'POST', body: blob })
