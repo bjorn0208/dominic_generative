@@ -147,7 +147,7 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
           const last = results[results.length - 1]
           if (!last) return
           const transcript = last[0].transcript.toLowerCase().trim()
-          if (transcript.includes('ativar dominic') && !busyRef.current) {
+          if (transcript.includes('acorde dominic') && !busyRef.current) {
             if (!voiceModeRef.current) {
               setVoiceMode(true)
               try { recognition.stop() } catch { /* ignore */ }

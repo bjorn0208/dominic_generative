@@ -10,7 +10,7 @@ from tts import Speaker
 
 load_dotenv()
 
-WAKE_WORDS = tuple(os.getenv("JARVIS_WAKE_WORDS", "dominic,jarvis").lower().split(","))
+WAKE_WORDS = tuple(os.getenv("JARVIS_WAKE_WORDS", "acorde,acorda").lower().split(","))
 STOP_PHRASES = ("tchau", "até mais", "pode dormir", "vai dormir", "desativar")
 
 

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { Mic, MicOff, Volume2, Trash2, ArrowRight, AudioLines } from 'lucide-react'
 import { sendChat } from '../utils/api.js'
 
-const WAKE_WORD = 'dominic'
+const WAKE_WORD = 'acorde'
 const STOP_PHRASES = ['tchau dominic', 'desativar', 'pode dormir', 'vai dormir', 'até mais']
 const COOLDOWN_MS = 1000
 const RESTART_DELAY_MS = 800
@@ -450,7 +450,7 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
           speak('Olá, meu nome é Dominic, o que tá pegando?')
           return
         }
-        showToast?.('Diga "Dominic" primeiro para ativar.', 'error')
+        showToast?.('Diga "Acorde" primeiro para ativar.', 'error')
         return
       }
       askDominic(raw)
@@ -519,7 +519,7 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
         </div>
 
         <div className="voice-status">
-          {replying ? 'Dominic está pensando...' : speaking ? 'Dominic está falando...' : listening ? (awake ? 'Fale com o Dominic...' : 'Ouvindo... diga "Dominic"') : awake ? 'Dominic ativado' : 'Modo voz pronto'}
+          {replying ? 'Dominic está pensando...' : speaking ? 'Dominic está falando...' : listening ? (awake ? 'Fale com o Dominic...' : 'Ouvindo... diga "Acorde"') : awake ? 'Dominic ativado' : 'Modo voz pronto'}
         </div>
 
         {lastError && (
@@ -557,8 +557,8 @@ export default function VoicePanel({ models, conversation, onNewConversation, on
           {recording
             ? 'Gravando... solte para enviar'
             : jarvisOnline
-              ? 'Segure o botão verde para falar, ou use o microfone e diga "Dominic".'
-              : 'Ative o microfone e diga "Dominic", ou segure o botão verde para falar.'}
+              ? 'Segure o botão verde para falar, ou use o microfone e diga "Acorde".'
+              : 'Ative o microfone e diga "Acorde", ou segure o botão verde para falar.'}
           {jarvisOnline && (
             <span className="jarvis-chip">✓ Voz neural ativa</span>
           )}
