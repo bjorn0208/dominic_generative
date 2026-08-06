@@ -208,6 +208,11 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
   const messages = conversation?.messages || []
   const providerId = conversation?.providerId || ''
   const model = conversation?.model || ''
+  const messagesRef = useRef(messages)
+
+  useEffect(() => {
+    messagesRef.current = conversation?.messages || []
+  }, [conversation?.messages])
 
   useEffect(() => {
     if (!conversation && models.length) {
@@ -243,7 +248,7 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
 
   const addMessage = (content, role = 'assistant', meta = null) => {
     onUpdateConversation(conversation.id, {
-      messages: [...messages, { role, content, meta }]
+      messages: [...messagesRef.current, { role, content, meta }]
     })
   }
 
@@ -258,7 +263,7 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
 
     if (!model) return
     const userMsg = { role: 'user', content: text }
-    const next = [...messages, userMsg]
+    const next = [...messagesRef.current, userMsg]
     onUpdateConversation(conversation.id, {
       messages: next,
       title: conversation.title === 'Nova conversa' ? text.slice(0, 60) : conversation.title
@@ -294,7 +299,7 @@ export default function ChatView({ models, ollamaOnline, brand, showToast, conve
     const label = GENERATION_LABELS[intent]
     const userMsg = { role: 'user', content: text }
     const msgs = [
-      ...messages,
+      ...messagesRef.current,
       userMsg,
       { role: 'assistant', content: progressHtml(label, 3) }
     ]
